@@ -5,7 +5,7 @@
 ![Status](https://img.shields.io/badge/Status-MVP_Development-green)
 ![Course](https://img.shields.io/badge/Course-Application_Project-lightgrey)
 
-Sistem monitoring ruangan **real-time** berbasis **ESP32**: memantau suhu, kelembaban, kualitas udara, dan okupansi ruangan. Data dikirim via WiFi ke **Firebase Realtime Database** dan ditampilkan di aplikasi mobile/web berupa dashboard live, grafik histori, dan notifikasi peringatan otomatis.
+Sistem monitoring ruangan **real-time** berbasis **ESP32**: memantau suhu, kelembaban, (opsional tekanan udara), kualitas udara, dan **keberadaan manusia bahkan saat diam**. Data dikirim via WiFi ke **Firebase Realtime Database** dan ditampilkan di aplikasi mobile/web berupa dashboard live, grafik histori, dan notifikasi peringatan otomatis.
 
 > 📄 Profil tim & visi proyek: [PROFIL_TIM.md](PROFIL_TIM.md)
 
@@ -15,11 +15,12 @@ Sistem monitoring ruangan **real-time** berbasis **ESP32**: memantau suhu, kelem
 
 | Fitur | Deskripsi | Status |
 |-------|------------|--------|
-| 🌡️ Dashboard Live | Suhu, kelembaban, kualitas udara, status hunian (update tiap 5 detik) | 🚧 MVP |
+| 🌡️ Dashboard Live | Suhu, kelembaban, kualitas udara, presence + jarak (update tiap 5 detik) | 🚧 MVP |
+| 🧍 Deteksi Orang Diam | Status `Kosong / Bergerak / Diam` + `diam selama X menit` via radar | 🚧 MVP |
 | 📈 Grafik Histori 24 Jam | Min / max / rata-rata harian | 🚧 MVP |
-| 🚨 Alert Otomatis | Buzzer lokal + notifikasi app saat suhu > 35°C / udara > 300 PPM | 🚧 MVP |
+| 🚨 Alert Otomatis | Buzzer lokal + notifikasi app saat suhu > 35°C / udara > 300 PPM / ada orang jam malam | 🚧 MVP |
 | 🔇 Kontrol dari HP | Mute buzzer, mode LED, mode kipas (Auto/ON/OFF) | 🚧 MVP |
-| 📋 Event Log | Catatan `motion detected`, `high-temp`, `poor-air` + timestamp | 💡 Bonus |
+| 📋 Event Log | Catatan `presence`, `high-temp`, `poor-air` + timestamp | 💡 Bonus |
 | 🌀 Kipas Otomatis | Relay menyalakan kipas jika suhu > 31°C | 💡 Bonus |
 
 ---
@@ -27,7 +28,7 @@ Sistem monitoring ruangan **real-time** berbasis **ESP32**: memantau suhu, kelem
 ## 🏗️ Arsitektur Sistem
 
 ```
-[DHT11 + PIR + MQ-135]
+[BME280/DHT20 + HLK-LD2410 + MQ-135]
         │  baca tiap 5 detik
         ▼
    [ESP32 DevKit] ──buzzer/LED──> Alarm lokal
@@ -39,32 +40,43 @@ Sistem monitoring ruangan **real-time** berbasis **ESP32**: memantau suhu, kelem
 [Mobile / Web App] ──tulis──> /control (mute, fan, led)
 ```
 
+### Pilihan Sensor Iklim
+- **Opsi A — BME280:** suhu + humidity + tekanan udara. Nilai plus (grafik tekanan), harga ~Rp 35–60rb. Pastikan **BME280 asli, bukan BMP280** (BMP280 tanpa humidity). Tegangan **wajib 3.3V**.
+- **Opsi B — DHT20:** suhu + humidity, I2C, murah ~Rp 20–30rb, toleran 3.3V/5V. Cukup untuk MVP.
+- Keduanya I2C: SDA GPIO21, SCL GPIO22 di ESP32.
+
+### Sensor Presence
+- **HLK-LD2410 (radar 24GHz)** menggantikan PIR. Mendeteksi orang diam (napas/gerak mikro), jarak s/d ~6m, 8 gate jarak.
+- Koneksi UART ke ESP32 (baud default 256000) + 5V stabil. Setting sensitivitas via aplikasi HLKRadarTool (Bluetooth, varian LD2410C) atau serial.
+- Mounting: tinggi 1.5–2m menghadap tengah ruangan, hindari kipas/metal.
+
 ### Struktur Data Firebase
 
 ```json
 {
   "rooms": {
     "room1": {
-      "live": { "temp": 31.2, "hum": 72, "air": 180, "motion": 1, "updatedAt": 1234567890 },
+      "live": { "temp": 31.2, "hum": 72, "pressure": 1008.2, "air": 180, "presence": "still", "distance": 2.3, "stationaryFor": 480, "updatedAt": 1234567890 },
       "control": { "buzzerMuted": false, "fanMode": "auto", "ledMode": "auto" },
-      "events": { "-Nx123": { "type": "motion", "at": 1234567890 } }
+      "events": { "-Nx123": { "type": "presence", "at": 1234567890 } }
     }
   }
 }
 ```
+`presence`: `empty` / `moving` / `still`. `pressure` hanya ada jika pakai BME280.
 
 ---
 
 ## 🛠️ Hardware & Software
 
-**Hardware (± Rp 250–400rb):**
-- ESP32 DevKit V1, DHT11/DHT22, HC-SR501 PIR, MQ-135/MQ-2, buzzer + LED, breadboard + kabel jumper, powerbank (untuk demo)
+**Hardware (± Rp 350–550rb):**
+- ESP32 DevKit V1, BME280 **atau** DHT20, HLK-LD2410/LD2410C, MQ-135/MQ-2, buzzer + LED, breadboard + kabel jumper, powerbank (untuk demo)
 
 **Software:**
 - Firmware: Arduino IDE / PlatformIO (C++)
 - Backend: Firebase Realtime Database (alternatif cepat: Blynk)
 - Aplikasi: Flutter / MIT App Inventor (pemula) / React + Web
-- Tools: Git, Fritzing (wiring diagram)
+- Tools: Git, Fritzing (wiring diagram), HLKRadarTool (setting LD2410)
 
 ---
 
@@ -88,7 +100,7 @@ SmartRoomMonitor/
 ### 1. Firmware (ESP32)
 ```bash
 # Buka firmware/smart_room_monitor.ino di Arduino IDE
-# Install library: DHT sensor, Firebase ESP Client
+# Install library: Adafruit BME280 + Adafruit Sensor (atau DHT20 by Rob Tillaart), ld2410 by ncmreynolds, Firebase ESP Client
 # Isi WiFi SSID/password + Firebase URL/API key
 # Upload ke ESP32, buka Serial Monitor 115200
 ```
@@ -107,11 +119,11 @@ flutter run
 ```
 
 ### 4. Uji Demo (urutan yang selalu berhasil)
-1. Panaskan DHT11 dengan tangan → suhu naik di app
-2. Lambaikan tangan di depan PIR → `Occupied`
+1. Genggam sensor iklim dengan tangan → suhu/humidity naik di app
+2. Duduk diam di depan LD2410 1–2 menit → status `Diam di ruangan` + jarak tampil
 3. Dekatkan spidol ke MQ → skor udara naik + buzzer bunyi
 
-> 💡 **Tips demo:** pakai hotspot HP (bukan WiFi kampus), panaskan MQ 2–3 menit sebelum demo.
+> 💡 **Tips demo:** pakai hotspot HP (bukan WiFi kampus), panaskan MQ 2–3 menit sebelum demo, kalibrasi gate LD2410 di ruangan demo yang sebenarnya.
 
 ---
 
