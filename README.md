@@ -5,7 +5,7 @@
 ![Status](https://img.shields.io/badge/Status-MVP_Development-green)
 ![Course](https://img.shields.io/badge/Course-Application_Project-lightgrey)
 
-Sistem monitoring ruangan **real-time** berbasis **ESP32**: memantau suhu, kelembaban, (opsional tekanan udara), kualitas udara, dan **keberadaan manusia bahkan saat diam**. Data dikirim via WiFi ke **Firebase Realtime Database** dan ditampilkan di aplikasi mobile/web berupa dashboard live, grafik histori, dan notifikasi peringatan otomatis.
+Sistem monitoring ruangan **real-time** berbasis **ESP32**: memantau suhu, kelembaban, tekanan udara (BME280), kualitas udara (MQ-135), dan **keberadaan manusia bahkan saat diam (HLK-LD2410)**. Data dikirim via WiFi ke **Firebase Realtime Database** dan ditampilkan di aplikasi mobile/web berupa dashboard live, grafik histori, dan notifikasi peringatan otomatis.
 
 > 📄 Profil tim & visi proyek: [PROFIL_TIM.md](PROFIL_TIM.md)
 
@@ -28,7 +28,7 @@ Sistem monitoring ruangan **real-time** berbasis **ESP32**: memantau suhu, kelem
 ## 🏗️ Arsitektur Sistem
 
 ```
-[BME280/DHT20 + HLK-LD2410 + MQ-135]
+[BME280 + HLK-LD2410 + MQ-135]
         │  baca tiap 5 detik
         ▼
    [ESP32 DevKit] ──buzzer/LED──> Alarm lokal
@@ -40,10 +40,9 @@ Sistem monitoring ruangan **real-time** berbasis **ESP32**: memantau suhu, kelem
 [Mobile / Web App] ──tulis──> /control (mute, fan, led)
 ```
 
-### Pilihan Sensor Iklim
-- **Opsi A — BME280:** suhu + humidity + tekanan udara. Nilai plus (grafik tekanan), harga ~Rp 35–60rb. Pastikan **BME280 asli, bukan BMP280** (BMP280 tanpa humidity). Tegangan **wajib 3.3V**.
-- **Opsi B — DHT20:** suhu + humidity, I2C, murah ~Rp 20–30rb, toleran 3.3V/5V. Cukup untuk MVP.
-- Keduanya I2C: SDA GPIO21, SCL GPIO22 di ESP32.
+### Sensor Iklim: BME280
+- Suhu + humidity + tekanan udara. Wiring I2C: SDA GPIO21, SCL GPIO22 di ESP32.
+- Pastikan **BME280 asli, bukan BMP280** (BMP280 tanpa humidity). Tegangan **wajib 3.3V**.
 
 ### Sensor Presence
 - **HLK-LD2410 (radar 24GHz)** menggantikan PIR. Mendeteksi orang diam (napas/gerak mikro), jarak s/d ~6m, 8 gate jarak.
@@ -63,14 +62,14 @@ Sistem monitoring ruangan **real-time** berbasis **ESP32**: memantau suhu, kelem
   }
 }
 ```
-`presence`: `empty` / `moving` / `still`. `pressure` hanya ada jika pakai BME280.
+`presence`: `empty` / `moving` / `still`. `pressure` dari BME280.
 
 ---
 
 ## 🛠️ Hardware & Software
 
 **Hardware (± Rp 350–550rb):**
-- ESP32 DevKit V1, BME280 **atau** DHT20, HLK-LD2410/LD2410C, MQ-135/MQ-2, buzzer + LED, breadboard + kabel jumper, powerbank (untuk demo)
+- ESP32 DevKit V1, BME280, HLK-LD2410/LD2410C, MQ-135, buzzer + LED, breadboard + kabel jumper, powerbank (untuk demo)
 
 **Software:**
 - Firmware: Arduino IDE / PlatformIO (C++)
@@ -100,7 +99,7 @@ SmartRoomMonitor/
 ### 1. Firmware (ESP32)
 ```bash
 # Buka firmware/smart_room_monitor.ino di Arduino IDE
-# Install library: Adafruit BME280 + Adafruit Sensor (atau DHT20 by Rob Tillaart), ld2410 by ncmreynolds, Firebase ESP Client
+# Install library: Adafruit BME280 + Adafruit Sensor, ld2410 by ncmreynolds, Firebase ESP Client
 # Isi WiFi SSID/password + Firebase URL/API key
 # Upload ke ESP32, buka Serial Monitor 115200
 ```

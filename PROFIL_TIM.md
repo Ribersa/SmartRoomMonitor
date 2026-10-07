@@ -2,7 +2,7 @@
 
 **Mata Kuliah:** Application Project
 **Proyek:** Sistem Monitoring Ruangan Berbasis IoT (Smart Room Monitor)
-**Hardware:** ESP32 + DHT11 + PIR + MQ-135
+**Hardware:** ESP32 + BME280 + HLK-LD2410 + MQ-135
 **Aplikasi:** Mobile/Web + Firebase Realtime Database
 
 ## 1. Anggota Tim
@@ -24,17 +24,17 @@
 **Masalah yang diselesaikan:**
 1. Ruangan panas/pengap tidak terpantau saat tidak ada orang.
 2. Kualitas udara buruk / asap tidak terdeteksi dini.
-3. Tidak ada catatan kejadian (motion, suhu tinggi) yang bisa dilihat jarak jauh.
+3. Tidak ada catatan kejadian (presence, suhu tinggi, kualitas udara) yang bisa dilihat jarak jauh.
 
 **Solusi:**
-Sistem Smart Room Monitor membaca suhu, kelembaban, kualitas udara, dan gerakan manusia setiap 5 detik menggunakan ESP32, mengirim ke Firebase, dan menampilkannya di aplikasi mobile/web berupa dashboard live, grafik 24 jam, log kejadian, dan notifikasi otomatis + buzzer lokal.
+Sistem Smart Room Monitor membaca suhu, kelembaban, tekanan udara (BME280), kualitas udara (MQ-135), dan keberadaan manusia termasuk orang diam (HLK-LD2410) setiap 5 detik menggunakan ESP32, mengirim ke Firebase, dan menampilkannya di aplikasi mobile/web berupa dashboard live, grafik 24 jam, log kejadian, dan notifikasi otomatis + buzzer lokal.
 
 **Target MVP (4-8 minggu):**
-- [ ] Suhu & kelembaban live di aplikasi
-- [ ] Status hunian (Occupied/Empty) dari PIR
-- [ ] Skor kualitas udara + status Good/Poor/Dangerous
+- [ ] Suhu, kelembaban & tekanan udara live di aplikasi (BME280)
+- [ ] Status presence (Kosong/Bergerak/Diam) + jarak dari HLK-LD2410
+- [ ] Skor kualitas udara + status Good/Poor/Dangerous (MQ-135)
 - [ ] Alert otomatis + tombol mute buzzer dari aplikasi
 - [ ] Demo stabil menggunakan hotspot HP
 
 **Definisi Selesai (Definition of Done):**
-Aplikasi menampilkan 3 data sensor secara live, menyimpan history, dan memicu alert dengan benar saat demo.
+Aplikasi menampilkan data BME280 + LD2410 + MQ-135 secara live, menyimpan history, dan memicu alert dengan benar saat demo.
