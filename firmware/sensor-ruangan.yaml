@@ -1,0 +1,149 @@
+esphome:
+  name: node-sensor-ruangan-s3
+  friendly_name: "Sensor Ruangan IoT (ESP32-S3 + SHT30)"
+
+esp32:
+  board: esp32-s3-devkitc-1
+  framework:
+    type: esp-idf
+
+logger:
+  level: INFO
+
+api:
+  encryption:
+    key: "!secret api_encryption_key"
+
+ota:
+  - platform: esphome
+    password: "!secret ota_password"
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  fast_connect: true
+  power_save_mode: none
+  ap:
+    ssid: "Sensor-Ruangan-S3-Recovery"
+    password: "!secret ap_fallback_password"
+
+# Konfigurasi Bus Komunikasi I2C (Pin Khusus ESP32-S3)
+i2c:
+  sda: GPIO4
+  scl: GPIO5
+  scan: true
+  frequency: 100kHz
+
+# Konfigurasi Bus Serial UART Radar (Pin Khusus ESP32-S3)
+uart:
+  id: uart_radar
+  tx_pin: GPIO17
+  rx_pin: GPIO18
+  baud_rate: 256000
+
+# Integrasi Komponen Radar HLK-LD2410
+ld2410:
+  uart_id: uart_radar
+
+# Output Kontrol untuk Aktuator
+output:
+  - platform: ledc
+    pin: GPIO6
+    id: buzzer_output
+
+  - platform: ledc
+    pin: GPIO7
+    id: fan_pwm_output
+    frequency: 25000Hz # Frekuensi PWM 25 kHz ke Modul MOSFET D4184
+
+  - platform: gpio
+    pin: GPIO15
+    id: relay_lampu_output
+
+  - platform: gpio
+    pin: GPIO2
+    id: led_indikator
+
+# Entitas Sensor Pembacaan Data Lingkungan
+sensor:
+  # 1. Metrik Mikroklimat Fisik (Sensirion SHT30-D Akurasi Presisi ±0.2°C)
+  - platform: sht3xd
+    address: 0x44
+    temperature:
+      name: "Suhu Udara"
+      id: suhu_ruangan
+      accuracy_decimals: 1
+    humidity:
+      name: "Kelembapan Relatif"
+      id: rh_ruangan
+      accuracy_decimals: 1
+    update_interval: 15s
+
+  # 2. Sensor Cadangan & Pembanding (Aosong AHT21 on-board ENS160)
+  - platform: aht10
+    variant: AHT20
+    address: 0x38
+    temperature:
+      name: "Suhu Internal Modul Gas"
+      id: suhu_internal_modul
+    humidity:
+      name: "Kelembapan Internal Modul Gas"
+    update_interval: 60s
+
+  # 3. Kualitas Udara dengan Kompensasi Lingkungan (ScioSense ENS160)
+  - platform: ens160_i2c
+    address: 0x52
+    eco2:
+      name: "Estimasi Karbon Dioksida (eCO2)"
+      unit_of_measurement: "ppm"
+      accuracy_decimals: 0
+    tvoc:
+      name: "Total Volatile Organic Compounds"
+      unit_of_measurement: "ppb"
+      accuracy_decimals: 0
+    air_quality_index:
+      name: "Indeks Kualitas Udara (AQI)"
+    compensation:
+      temperature: suhu_ruangan
+      humidity: rh_ruangan
+    update_interval: 30s
+
+  # 4. Sensor Iluminansi Cahaya Ruangan (Rohm BH1750)
+  - platform: bh1750
+    name: "Tingkat Cahaya Ruangan"
+    id: lux_ruangan
+    address: 0x23
+    update_interval: 15s
+
+  # 5. Telemetri Jarak Deteksi Radar
+  - platform: ld2410
+    moving_distance:
+      name: "Jarak Target Bergerak"
+      unit_of_measurement: "cm"
+    still_distance:
+      name: "Jarak Target Diam"
+      unit_of_measurement: "cm"
+
+# Entitas Sensor Biner Deteksi Keberadaan
+binary_sensor:
+  - platform: ld2410
+    has_target:
+      name: "Status Presensi Ruangan"
+      id: presensi_target
+      filters:
+        - delayed_off: 60s
+    has_moving_target:
+      name: "Gerakan Dinamis Terdeteksi"
+    has_still_target:
+      name: "Target Diam Terdeteksi"
+
+interval:
+  - interval: 1s
+    then:
+      - if:
+          condition:
+            wifi.connected:
+          then:
+            - output.turn_on: led_indikator
+          else:
+            - output.turn_off: led_indikator
