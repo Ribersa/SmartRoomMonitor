@@ -7,14 +7,14 @@
 
 ---
 
-## 1. Anggota Tim & Pembagian Tugas (Sesuai SRS v0.8)
+## 1. Anggota Tim & Pembagian Tugas (Sesuai SRS v0.9)
 
-| No | Nama | NIM | Peran Tim | Modul Tanggung Jawab (SRS) |
+| No | Nama | NIM | Peran Tim | Modul Tanggung Jawab (SRS v0.9) |
 |---|---|---|---|---|
-| 1 | **Deswiryawan Saragih** | 241111008 | Product Owner / M4 Lead | **FR-07** (Presensi Jam Malam), **FR-08** (Kontrol Lampu), **NFR-07** (Standarisasi Data), **NFR-08** (Akurasi Sensor) |
-| 2 | **Akhmad Zakariya** | 241111010 | Scrum Master / M2 Lead | **FR-03** (Kelembapan & Label), **FR-04** (Grafik 24 Jam & Event Log), **NFR-03** (Keamanan Akses), **NFR-04** (Aturan Firebase) |
-| 3 | **Fattih Kuwaka Bekti** | 241111005 | Developer / M3 Lead (Hardware & Firmware) | **FR-05** (Kualitas Udara & Warning), **FR-06** (Bunyi Buzzer & Mute Darurat), **NFR-05** (Usabilitas), **NFR-06** (Kompatibilitas) |
-| 4 | **Ahmad Syakir Lathifuddin** | 241111026 | Developer / M1 Lead (App & Backend) | **FR-01** (Suhu & Warning Tinggi), **FR-02** (Kontrol Kipas Otomatis), **NFR-01** (Kinerja Respon), **NFR-02** (Keandalan Koneksi) |
+| 1 | **Deswiryawan Saragih** | 241111008 | Product Owner / M3 Lead | **FR-05** (Kehadiran Jam Malam), **FR-06** (Bunyi Peringatan & Mute Darurat), **NFR-05** (Keterpeliharaan), **NFR-06** (Akurasi Data) |
+| 2 | **Akhmad Zakariya** | 241111010 | Scrum Master / M2 Lead | **FR-03** (Kualitas Udara & Warning), **FR-04** (Grafik 24 Jam & Event Log), **NFR-03** (Keamanan Akses), **NFR-04** (Aturan Firebase) |
+| 3 | **Fattih Kuwaka Bekti** | 241111005 | Developer / M4 Lead | **FR-07** (Tingkat Cahaya & Label), **FR-08** (Kontrol Lampu), **NFR-07** (Usabilitas), **NFR-08** (Kompatibilitas) |
+| 4 | **Ahmad Syakir Lathifuddin** | 241111026 | Developer / M1 Lead | **FR-01** (Suhu & Warning Tinggi), **FR-02** (Kontrol Kipas), **NFR-01** (Kinerja Respon), **NFR-02** (Keandalan Koneksi) |
 
 > **Kebutuhan Bersama:** **FR-B01** (Autentikasi Email/Password & Peran Pengunjung/Staff) dan **FR-B02** (Dashboard Real-time 5s & Deteksi Offline 15s) dikerjakan secara kolaboratif.
 
@@ -38,7 +38,7 @@ Sistem **SmartRoomMonitor** membaca parameter suhu dan kelembapan (SHT30-D), kua
 
 ## 3. Target MVP & Definisi Selesai (Definition of Done)
 
-* [x] **Spesifikasi Software Disahkan:** Dokumen SRS v0.8 lengkap (8 FR, 8 NFR, batasan sistem).
+* [x] **Spesifikasi Software Disahkan:** Dokumen SRS v0.9 lengkap (8 FR, 8 NFR, batasan sistem).
 * [x] **Skematik & Desain Elektrik Selesai:** Blueprint breadboard ESP32-S3 dan optimasi Sensirion SHT30-D.
 * [x] **Pengadaan Komponen Terinci:** Daftar belanja Shopee tervalidasi dan siap rakit.
 * [ ] **Sprint 1 (Hardware & Firmware Proof-of-Concept):** Seluruh 4 sensor terbaca di serial monitor ESP32-S3 dan data terkirim ke Firebase node `room1/telemetry`.

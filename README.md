@@ -5,7 +5,7 @@
 ![Kotlin](https://img.shields.io/badge/Language-Kotlin_Jetpack_Compose-purple?logo=kotlin)
 ![Firebase](https://img.shields.io/badge/Backend-Firebase_RTDB_%26_Auth-orange?logo=firebase)
 ![Course](https://img.shields.io/badge/Course-Rekayasa_Perangkat_Lunak_(RPL)-lightgrey)
-![Status](https://img.shields.io/badge/Status-SRS_v0.8_Approved-brightgreen)
+![Status](https://img.shields.io/badge/Status-SRS_v0.9_Approved-brightgreen)
 
 Sistem pemantauan dan otomatisasi kondisi ruangan **real-time** berbasis **ESP32-S3**: memantau suhu dan kelembapan presisi (**Sensirion SHT30-D**), kualitas udara multi-parameter AQI/TVOC/eCO2 (**ScioSense ENS160**), intensitas cahaya ruangan (**Rohm BH1750**), dan pelacakan keberadaan manusia diam maupun bergerak (**Radar mmWave 24 GHz HLK-LD2410**). 
 
@@ -13,27 +13,27 @@ Data dikirimkan secara kontinu via Wi-Fi ke **Firebase Realtime Database** dan d
 
 > 📄 **Dokumentasi Lengkap:**
 > * Profil Tim & Pembagian Modul: [`PROFIL_TIM.md`](PROFIL_TIM.md)
-> * Dokumen SRS Resmi: [`docs/SRS-SmartRoomMonitor-v0.8.md`](docs/SRS-SmartRoomMonitor-v0.8.md)
+> * Dokumen SRS Resmi: [`docs/SRS-SmartRoomMonitor-v0.9.md`](docs/SRS-SmartRoomMonitor-v0.9.md)
 > * Blueprint Wiring Breadboard: [`docs/blueprint-esp32s3-prototipe.md`](docs/blueprint-esp32s3-prototipe.md)
 > * Sinkronisasi Spesifikasi & JSON: [`docs/sinkronisasi-sensor-srs.md`](docs/sinkronisasi-sensor-srs.md)
 > * Daftar Belanja & Anggaran Komponen: [`docs/daftar kebutuhan.pdf`](docs/daftar%20kebutuhan.pdf)
 
 ---
 
-## ✨ Fitur Utama (Sesuai SRS v0.8)
+## ✨ Fitur Utama (Sesuai SRS v0.9)
 
 Sistem dirancang berdasarkan **8 Kebutuhan Fungsional (FR)** dan **8 Kebutuhan Non-Fungsional (NFR)** yang dibagi rata ke seluruh anggota tim:
 
 | ID | Fitur Utama | Deskripsi Fungsional | PIC Modul |
 |---|---|---|---|
-| **FR-01** | 🌡️ Suhu & Peringatan Dini | Menampilkan suhu (°C). Badge/banner & alarm berbunyi saat suhu > 35°C (debounce 60 detik). | M1 Syakir |
-| **FR-02** | 🌀 Kontrol Kipas Otomatis | Mode *Otomatis / Selalu ON / Selalu OFF*. Pada Otomatis, kipas menyala saat suhu > 31°C dan mati saat $\le$ 30°C (histeresis 1°C). | M1 Syakir |
-| **FR-03** | 💧 Kelembapan & Label | Menampilkan RH (%) dengan label ramah pengguna: *Kering (<40%)*, *Nyaman (40–60%)*, atau *Lembap (>60%)*. | M2 Zakariya |
+| **FR-01** | 🌡️ Suhu & Peringatan Suhu Tinggi | Menampilkan suhu (°C). Badge/banner & alarm berbunyi saat suhu > 35°C (debounce 60 detik). | M1 Syakir |
+| **FR-02** | 🌀 Kontrol Kipas | Mode *Otomatis / Selalu ON / Selalu OFF*. Pada Otomatis, kipas menyala saat suhu > 31°C dan mati saat $\le$ 30°C (histeresis 1°C). | M1 Syakir |
+| **FR-03** | 🍃 Kualitas Udara & Peringatan | Menampilkan status kualitas udara: *Memanaskan*, *Baik*, *Sedang*, atau *Buruk*. Alert & buzzer aktif jika udara Buruk (3 menit pertama warm-up). | M2 Zakariya |
 | **FR-04** | 📈 Grafik 24 Jam & Event Log | Visualisasi tren 24 jam (min, max, rata-rata) serta pencatatan daftar log kejadian berbasis warna dan filter waktu. | M2 Zakariya |
-| **FR-05** | 🍃 Kualitas Udara (IAQ) | Menampilkan status kualitas udara: *Memanaskan*, *Baik*, *Sedang*, atau *Buruk*. Alert & buzzer aktif jika udara Buruk. | M3 Fattih |
-| **FR-06** | 🔇 Mute Alarm Cepat | Alarm lokal tetap berbunyi saat offline. Staff dapat membungkam alarm lewat tombol MUTE di aplikasi dalam waktu $\le$ 7 detik. | M3 Fattih |
-| **FR-07** | 🧍 Presensi & Jam Malam | Status kehadiran (*tidak ada / bergerak / diam*). Memicu alarm keamanan otomatis jika ada orang di jam **22:00–06:00**. | M4 Deswiryawan |
-| **FR-08** | 💡 Kontrol Lampu Adaptif | Mode *Otomatis / Selalu ON / Selalu OFF*. Pada Otomatis, lampu menyala saat ruangan gelap **DAN** ada orang. | M4 Deswiryawan |
+| **FR-05** | 🧍 Kehadiran & Peringatan Jam Malam | Status kehadiran (*tidak ada / bergerak / diam*). Memicu banner/badge dan bunyi peringatan jika ada orang pada jam **22:00–06:00**. | M3 Deswiryawan |
+| **FR-06** | 🔇 Bunyi Peringatan & Mute Darurat | Perangkat berbunyi saat ada peringatan (tetap berbunyi lokal saat offline). Staff dapat membungkam alarm maksimal 2 tap dalam $\le$ 7 detik. | M3 Deswiryawan |
+| **FR-07** | 💡 Tingkat Cahaya & Label | Menampilkan tingkat cahaya (lux) atau tingkat kecerahan cahaya di aplikasi secara real-time. | M4 Fattih |
+| **FR-08** | 💡 Kontrol Lampu | Mode *Otomatis / Selalu ON / Selalu OFF*. Pada Otomatis, lampu menyala saat gelap dan ada orang, dan mati saat terang/kosong. | M4 Fattih |
 | **FR-B01** | 🔐 Autentikasi & Peran | Login/logout email & password. Membedakan hak akses antara peran **Pengunjung** (read-only) dan **Staff** (kontrol & mute). | Bersama |
 | **FR-B02** | 📡 Dashboard & Deteksi Offline | Update data real-time tiap 5 detik. Banner *"Perangkat offline"* otomatis muncul jika data terhenti > 15 detik. | Bersama |
 
