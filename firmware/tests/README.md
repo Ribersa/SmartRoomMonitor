@@ -13,6 +13,7 @@ Dokumentasi dan kode pengujian mandiri (*unit testing*) perangkat keras ESP32-S3
 | [`03_uji_alarm_bertingkat_aqi_buzzer/`](03_uji_alarm_bertingkat_aqi_buzzer/) | Sistem alarm bertingkat 5-Level AQI menggunakan Buzzer Pasif. | Buzzer: GPIO 6<br>I2C: GPIO 4 & 5 | ✅ Lolos uji sirine otomatis saat udara memburuk |
 | [`04_uji_telemetri_sht30_ens160_bh1750_buzzer/`](04_uji_telemetri_sht30_ens160_bh1750_buzzer/) | Integrasi multi-sensor I2C utama (SHT30 presisi M1, BH1750 lux M4, ENS160 gas M3) dan driver buzzer anti-dengung. | SDA: GPIO 4<br>SCL: GPIO 5<br>Buzzer: GPIO 6 | ✅ Lolos uji 4 skenario empiris real-time |
 | [`05_uji_telemetri_ble_serial/`](05_uji_telemetri_ble_serial/) | Streaming data sensor nirkabel ke HP Android via Bluetooth Low Energy (BLE 5.0) Nordic UART Service (NUS). | BLE 5.0 Radio<br>I2C: GPIO 4 & 5 | ✅ Terhubung & streaming real-time ke Serial Bluetooth Terminal |
+| [`06_uji_telemetri_firebase_rtdb/`](06_uji_telemetri_firebase_rtdb/) | Pengiriman data telemetri multi-sensor ke Firebase Realtime Database (RTDB) via HTTPS REST API. | Wi-Fi 2.4 GHz<br>I2C: GPIO 4 & 5 | ✅ Berhasil terkirim (HTTP 200 OK) & live update di Firebase Console |
 
 ---
 
