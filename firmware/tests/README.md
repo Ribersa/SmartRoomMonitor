@@ -14,6 +14,7 @@ Dokumentasi dan kode pengujian mandiri (*unit testing*) perangkat keras ESP32-S3
 | [`04_uji_telemetri_sht30_ens160_bh1750_buzzer/`](04_uji_telemetri_sht30_ens160_bh1750_buzzer/) | Integrasi multi-sensor I2C utama (SHT30 presisi M1, BH1750 lux M4, ENS160 gas M3) dan driver buzzer anti-dengung. | SDA: GPIO 4<br>SCL: GPIO 5<br>Buzzer: GPIO 6 | ✅ Lolos uji 4 skenario empiris real-time |
 | [`05_uji_telemetri_ble_serial/`](05_uji_telemetri_ble_serial/) | Streaming data sensor nirkabel ke HP Android via Bluetooth Low Energy (BLE 5.0) Nordic UART Service (NUS). | BLE 5.0 Radio<br>I2C: GPIO 4 & 5 | ✅ Terhubung & streaming real-time ke Serial Bluetooth Terminal |
 | [`06_uji_telemetri_firebase_rtdb/`](06_uji_telemetri_firebase_rtdb/) | Pengiriman data telemetri multi-sensor ke Firebase Realtime Database (RTDB) via HTTPS REST API. | Wi-Fi 2.4 GHz<br>I2C: GPIO 4 & 5 | ✅ Berhasil terkirim (HTTP 200 OK) & live update di Firebase Console |
+| [`07_uji_radar_ld2410/`](07_uji_radar_ld2410/) | Pengujian sensor radar mmWave 24 GHz Hilink HLK-LD2410 via UART untuk deteksi presensi manusia (FR-05). | VCC: 5V<br>TX: GPIO 18 (RX1)<br>RX: GPIO 17 (TX1) | ⏳ Siap diuji (Deteksi: Kosong / Bergerak / Diam) |
 
 ---
 
