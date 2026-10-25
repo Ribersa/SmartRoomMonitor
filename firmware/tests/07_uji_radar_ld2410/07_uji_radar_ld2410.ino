@@ -1,25 +1,43 @@
 // ==============================================================================
-// 07_uji_radar_ld2410.ino (VERSI MAKSIMAL - FULL FITUR MODUL M3)
+// 07_uji_radar_ld2410.ino (VERSI ULTIMATE: RADAR M3 + BLE SERIAL + FR-05/FR-06)
 // Proyek: SmartRoomMonitor (RPL) - PIC Modul M3: Deswiryawan Saragih (241111008)
 // Deskripsi: Pengujian komprehensif Radar mmWave 24 GHz Hilink HLK-LD2410
-//            mencakup seluruh kebutuhan Modul M3 (FR-05 & FR-06):
-//            1. Auto-Swap Pin UART (otomatis mendeteksi jika TX/RX terbalik).
-//            2. Pembatasan jarak deteksi (Default 0.5m - 0.75m) & kontrol live.
-//            3. Visualisasi bar energi gerak & energi napas mikro (diam).
-//            4. Simulasi Peringatan Jam Malam (22:00-06:00) + Buzzer (FR-05).
-//            5. Simulasi Tombol MUTE Darurat via Serial (FR-06).
-// Hardware: ESP32-S3 DevKitC-1 N16R8 + HLK-LD2410 + Buzzer Pasif (GPIO 6)
+//            dengan dukungan ganda: Kabel USB Serial Monitor & Bluetooth BLE HP!
+// Fitur Utama:
+//   1. Streaming & Kontrol 2 Arah via "Serial Bluetooth Terminal" (BLE NUS).
+//   2. Auto-Swap Pin UART (otomatis mendeteksi jika TX/RX radar terbalik).
+//   3. Kalibrasi Sensitivitas Napas (Stationary Detection) agar orang diam tetap terdeteksi.
+//   4. Visualisasi bar energi gerak & energi napas mikro (diam).
+//   5. Simulasi Peringatan Jam Malam (22:00-06:00) + Buzzer (FR-05).
+//   6. Simulasi Tombol MUTE Darurat via HP / Serial (FR-06).
 // ==============================================================================
 
 #include <ld2410.h>
+#include <BLEDevice.h>
+#include <BLEServer.h>
+#include <BLEUtils.h>
+#include <BLE2902.h>
 
 #define RADAR_RX_PIN 18 // Default: terima dari TX Radar
 #define RADAR_TX_PIN 17 // Default: kirim ke RX Radar
 #define RADAR_BAUD   256000
 #define BUZZER_PIN   6  // Buzzer Active-LOW (HIGH = Mati, LOW = Nyala)
 
+// UUID Standar Nordic Semiconductor UART Service (NUS) untuk Serial Bluetooth Terminal
+#define SERVICE_UUID           "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
+#define CHARACTERISTIC_UUID_RX "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
+#define CHARACTERISTIC_UUID_TX "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
+
 ld2410 radar;
 unsigned long lastPrintTime = 0;
+unsigned long printIntervalMs = 1000; // Default cetak tiap 1 detik (bisa diubah ke 3 detik dengan 't')
+
+// State BLE
+BLEServer *pServer = NULL;
+BLECharacteristic *pTxCharacteristic = NULL;
+bool bleConnected = false;
+bool oldBleConnected = false;
+volatile char pendingBleCmd = 0;
 
 // State Simulasi Fitur M3 (FR-05 & FR-06)
 bool modeJamMalam = false; // Simulasi jam 22:00 - 06:00 (FR-05)
@@ -27,12 +45,42 @@ bool alarmMuted   = false; // Status MUTE darurat oleh Staff (FR-06)
 int activeRxPin   = RADAR_RX_PIN;
 int activeTxPin   = RADAR_TX_PIN;
 
-// Pemutus arus Buzzer (Modul Active-LOW PNP: HIGH = Cut-Off / Bisu Total)
+// Fungsi bantu kirim teks ke USB Serial sekaligus ke Bluetooth HP
+void kirimPesan(const char* teks) {
+  Serial.print(teks);
+  if (bleConnected && pTxCharacteristic != NULL) {
+    pTxCharacteristic->setValue((uint8_t*)teks, strlen(teks));
+    pTxCharacteristic->notify();
+  }
+}
+
+// Callback Koneksi Server BLE
+class MyServerCallbacks: public BLEServerCallbacks {
+    void onConnect(BLEServer* pServer) {
+      bleConnected = true;
+      Serial.println("\n📲 [BLE] Smartphone Terhubung! Kontrol & Telemetri Nirkabel Aktif.");
+    };
+
+    void onDisconnect(BLEServer* pServer) {
+      bleConnected = false;
+      Serial.println("\n📲 [BLE] Smartphone Terputus. Kembali mengiklankan sinyal...");
+    }
+};
+
+// Callback Penerima Perintah Ketikan dari HP (RX Characteristic)
+class MyRxCallbacks: public BLECharacteristicCallbacks {
+    void onWrite(BLECharacteristic *pCharacteristic) {
+      String rxValue = pCharacteristic->getValue();
+      if (rxValue.length() > 0) {
+        pendingBleCmd = rxValue[0]; // Simpan karakter perintah untuk dieksekusi di loop
+      }
+    }
+};
+
 void matikanBuzzer() {
   digitalWrite(BUZZER_PIN, HIGH);
 }
 
-// Pembangkit frekuensi suara untuk Buzzer Pasif
 void mainkanNada(int frekuensi, int durasiMs) {
   long periodeUs = 1000000L / frekuensi;
   long setengahPeriodeUs = periodeUs / 2;
@@ -47,7 +95,6 @@ void mainkanNada(int frekuensi, int durasiMs) {
   matikanBuzzer();
 }
 
-// Bunyi peringatan singkat saat terdeteksi orang di Jam Malam (FR-05)
 void bunyiAlarmJamMalam() {
   mainkanNada(2800, 90);
   delay(40);
@@ -55,7 +102,6 @@ void bunyiAlarmJamMalam() {
   matikanBuzzer();
 }
 
-// Gambar grafik bar energi [████░░░░░░] (0 - 100)
 void cetakBarEnergi(uint8_t energi, char* bufferOut) {
   int terisi = energi / 10;
   if (terisi > 10) terisi = 10;
@@ -66,64 +112,78 @@ void cetakBarEnergi(uint8_t energi, char* bufferOut) {
   strcat(bufferOut, "]");
 }
 
-// Tampilkan menu kontrol interaktif di Serial Monitor
 void tampilkanMenuBantuan() {
-  Serial.println("\n==================== PANEL KONTROL LIVE RADAR M3 ====================");
-  Serial.println("  Ketik karakter berikut di kotak pesan Serial Monitor lalu Enter:");
-  Serial.println("  [0] Limit Jarak Super Dekat (~0.5m / Gate 0, Timeout 1 dtk)");
-  Serial.println("  [1] Limit Jarak Meja Kerja  (~0.75m / Gate 1, Timeout 2 dtk) [DEFAULT]");
-  Serial.println("  [2] Limit Jarak Area Kasur  (~2.25m / Gate 3, Timeout 5 dtk)");
-  Serial.println("  [3] Limit Jarak Kamar Penuh (~4.50m / Gate 6, Timeout 5 dtk)");
-  Serial.println("  [4] Limit Jarak Maksimal    (~6.00m / Gate 8, Timeout 5 dtk)");
-  Serial.println("  [m] Toggle Simulasi JAM MALAM 22:00-06:00 (FR-05 Alarm Intrusi)");
-  Serial.println("  [x] Tekan MUTE DARURAT (FR-06 Bungkam Buzzer)");
-  Serial.println("  [i] Baca Info Firmware & Konfigurasi Gate Radar Saat Ini");
-  Serial.println("  [r] Factory Reset Radar ke Setelan Pabrik");
-  Serial.println("  [h] Tampilkan Menu Bantuan Ini");
-  Serial.println("=====================================================================\n");
+  kirimPesan("\r\n================ PANEL KONTROL RADAR M3 (USB & BLE) ================\r\n");
+  kirimPesan("  [1] Mode Meja Dekat   (~1.50m / Gate 2, Peka Napas, Timeout 5s)\r\n");
+  kirimPesan("  [2] Mode Area Kasur   (~2.25m / Gate 3, Peka Napas, Timeout 5s)\r\n");
+  kirimPesan("  [3] Mode Kamar Penuh  (~4.50m / Gate 6, Peka Napas, Timeout 5s)\r\n");
+  kirimPesan("  [4] Mode Jarak Maks   (~6.00m / Gate 8, Peka Napas, Timeout 5s)\r\n");
+  kirimPesan("  [s] Boost Sensitivitas Diam/Napas Maksimal (Threshold = 15%)\r\n");
+  kirimPesan("  [t] Toggle Interval Layar: Cepat (1 dtk) vs Santai NFR-01 (3 dtk)\r\n");
+  kirimPesan("  [m] Toggle Simulasi JAM MALAM 22:00-06:00 (FR-05 Alarm)\r\n");
+  kirimPesan("  [x] Tekan MUTE DARURAT (FR-06 Bungkam Buzzer)\r\n");
+  kirimPesan("  [i] Baca Info Firmware & Konfigurasi Gate Radar\r\n");
+  kirimPesan("  [r] Factory Reset Radar\r\n");
+  kirimPesan("  [h] Tampilkan Menu Ini\r\n");
+  kirimPesan("====================================================================\r\n\n");
 }
 
-// Fungsi mengatur batas jarak gate radar (1 Gate = ~0.75 meter)
+// Fungsi untuk mempertajam kepekaan deteksi orang diam (bernapas)
+// Catatan: Di protokol LD2410, semakin KECIL nilai threshold (0-100), semakin PEKA sensornya!
+void optimalkanSensitivitasNapas() {
+  kirimPesan("🫁 [KALIBRASI NAPAS] Menurunkan ambang batas (threshold) diam agar peka napas...\r\n");
+  // Gate 0 & 1: Gerak=30, Diam=20 (Catatan: di beberapa versi FW, Diam baru aktif mulai Gate 2)
+  radar.setGateSensitivityThreshold(0, 30, 20);
+  radar.setGateSensitivityThreshold(1, 30, 20);
+  // Gate 2 & 3 (~0.75m - 2.25m): Zona duduk di meja/kasur -> buat SANGAT PEKA terhadap napas (Threshold Diam = 15)
+  radar.setGateSensitivityThreshold(2, 30, 15);
+  radar.setGateSensitivityThreshold(3, 35, 15);
+  // Gate 4 - 6: Zona tengah kamar (Threshold Diam = 20)
+  radar.setGateSensitivityThreshold(4, 40, 20);
+  radar.setGateSensitivityThreshold(5, 40, 20);
+  radar.setGateSensitivityThreshold(6, 45, 25);
+  kirimPesan("✅ [SIAP] Sensitivitas deteksi orang diam/bernapas telah di-boost!\r\n\n");
+}
+
 void aturBatasJarakGate(uint8_t gateMaks, uint16_t timeoutDetik, const char* labelMode) {
-  Serial.printf("\n⚙️ [KONFIGURASI] Mengatur jarak ke %s (Gate %d, Timeout %d dtk)...\n",
-                labelMode, gateMaks, timeoutDetik);
-  if (radar.setMaxValues(gateMaks, gateMaks, timeoutDetik)) {
-    Serial.println("✅ [SUKSES] Batas jarak berhasil diterapkan ke chip radar!\n");
+  // PENTING: Protokol HLK-LD2410 mewajibkan max_stationary_gate minimal Gate 2
+  // karena Gate 0 & Gate 1 tidak memiliki deteksi diam (stationary) mandiri!
+  uint8_t gateDiam = (gateMaks < 2) ? 2 : gateMaks;
+  uint8_t gateGerak = (gateMaks < 2) ? 2 : gateMaks;
+
+  char buf[128];
+  snprintf(buf, sizeof(buf), "\r\n⚙️ [KONFIGURASI] Set jarak ke %s (Gate %d, Timeout %ds)...\r\n",
+           labelMode, gateGerak, timeoutDetik);
+  kirimPesan(buf);
+
+  if (radar.setMaxValues(gateGerak, gateDiam, timeoutDetik)) {
+    kirimPesan("✅ [SUKSES] Batas jarak & deteksi diam berhasil diterapkan!\r\n\n");
     mainkanNada(2400, 60);
   } else {
-    Serial.println("⚠️ [GAGAL] Radar belum merespons perintah konfigurasi. Pastikan kabel RX radar terhubung.\n");
+    kirimPesan("⚠️ [GAGAL] Radar belum merespons perintah konfigurasi.\r\n\n");
   }
 }
 
-// Baca & tampilkan informasi internal chip radar
 void bacaInfoRadar() {
-  Serial.println("\n🔍 [INFO RADAR] Membaca parameter internal HLK-LD2410...");
+  char buf[128];
+  kirimPesan("\r\n🔍 [INFO RADAR] Membaca parameter internal HLK-LD2410...\r\n");
   if (radar.requestFirmwareVersion()) {
-    Serial.printf("   - Versi Firmware : v%d.%02d.%08X\n",
-                  radar.firmware_major_version,
-                  radar.firmware_minor_version,
-                  radar.firmware_bugfix_version);
+    snprintf(buf, sizeof(buf), "   - Firmware: v%d.%02d.%08X\r\n",
+             radar.firmware_major_version,
+             radar.firmware_minor_version,
+             radar.firmware_bugfix_version);
+    kirimPesan(buf);
   }
   if (radar.requestCurrentConfiguration()) {
-    Serial.printf("   - Max Gate Gerak : Gate %d (~%.2f meter)\n",
-                  radar.max_moving_gate, (radar.max_moving_gate + 1) * 0.75);
-    Serial.printf("   - Max Gate Diam  : Gate %d (~%.2f meter)\n",
-                  radar.max_stationary_gate, (radar.max_stationary_gate + 1) * 0.75);
-    Serial.printf("   - Waktu Timeout  : %d detik\n", radar.sensor_idle_time);
-    Serial.println("   - Ambang Sensitivitas per Gate (0 - 8):");
-    for (int g = 0; g <= 8; g++) {
-      Serial.printf("     Gate %d (~%.2fm) -> Gerak: %d | Diam/Napas: %d\n",
-                    g, (g + 1) * 0.75,
-                    radar.motion_sensitivity[g],
-                    radar.stationary_sensitivity[g]);
-    }
+    snprintf(buf, sizeof(buf), "   - Max Gate Gerak: %d (~%.2fm) | Max Gate Diam: %d (~%.2fm) | Timeout: %ds\r\n\n",
+             radar.max_moving_gate, (radar.max_moving_gate + 1) * 0.75,
+             radar.max_stationary_gate, (radar.max_stationary_gate + 1) * 0.75,
+             radar.sensor_idle_time);
+    kirimPesan(buf);
   }
-  Serial.println();
 }
 
-// Auto-Discovery koneksi UART (mencoba pin normal lalu otomatis balik jika tertukar)
 bool hubungkanRadarOtomatis() {
-  // Percobaan 1: Konfigurasi Standar (RX=18, TX=17)
   Serial.print("🔄 [UART] Mencoba koneksi standar (RX=GPIO 18, TX=GPIO 17)... ");
   Serial1.begin(RADAR_BAUD, SERIAL_8N1, 18, 17);
   radar.begin(Serial1, false);
@@ -141,7 +201,6 @@ bool hubungkanRadarOtomatis() {
   }
   Serial.println("Belum ada respons.");
 
-  // Percobaan 2: Auto-Swap (RX=17, TX=18) jika kabel TX/RX tertukar
   Serial.print("🔄 [AUTO-SWAP] Mencoba membalik jalur pin (RX=GPIO 17, TX=GPIO 18)... ");
   Serial1.end();
   delay(100);
@@ -161,73 +220,112 @@ bool hubungkanRadarOtomatis() {
   }
   Serial.println("Gagal.");
 
-  // Kembalikan ke default untuk percobaan berkala di loop
   Serial1.end();
   Serial1.begin(RADAR_BAUD, SERIAL_8N1, 18, 17);
   radar.begin(Serial1, false);
   return false;
 }
 
-void prosesInputSerial() {
-  if (!Serial.available()) return;
-
-  char cmd = Serial.read();
-  // Bersihkan sisa newline
-  while (Serial.available()) {
-    char c = Serial.peek();
-    if (c == '\r' || c == '\n') Serial.read();
-    else break;
-  }
-
+void eksekusiPerintah(char cmd) {
+  char buf[128];
   switch (cmd) {
     case '0':
-      aturBatasJarakGate(0, 1, "Super Dekat (~0.5m)");
+    case '1': aturBatasJarakGate(2, 5, "Meja Dekat (~1.50m / Gate 2)"); break;
+    case '2': aturBatasJarakGate(3, 5, "Area Kasur (~2.25m / Gate 3)"); break;
+    case '3': aturBatasJarakGate(6, 5, "Kamar Penuh (~4.50m / Gate 6)"); break;
+    case '4': aturBatasJarakGate(8, 5, "Maksimal (~6.00m / Gate 8)"); break;
+    case 's':
+    case 'S':
+      optimalkanSensitivitasNapas();
+      mainkanNada(2600, 70);
       break;
-    case '1':
-      aturBatasJarakGate(1, 2, "Meja Kerja (~0.75m)");
-      break;
-    case '2':
-      aturBatasJarakGate(3, 5, "Area Kasur (~2.25m)");
-      break;
-    case '3':
-      aturBatasJarakGate(6, 5, "Kamar Penuh (~4.50m)");
-      break;
-    case '4':
-      aturBatasJarakGate(8, 5, "Maksimal (~6.00m)");
+    case 't':
+    case 'T':
+      printIntervalMs = (printIntervalMs == 1000) ? 3000 : 1000;
+      snprintf(buf, sizeof(buf), "\r\n⏱️ [INTERVAL CETAK] Diubah ke tiap %lu detik!\r\n\n", printIntervalMs / 1000);
+      kirimPesan(buf);
       break;
     case 'm':
     case 'M':
       modeJamMalam = !modeJamMalam;
-      alarmMuted = false; // Reset mute saat ganti mode
-      Serial.printf("\n🌙 [MODE JAM MALAM FR-05] Status: %s\n\n",
-                    modeJamMalam ? "AKTIF (22:00 - 06:00 -> Alarm Menyala Jika Ada Orang!)" : "NONAKTIF (Siang Hari Normal)");
+      alarmMuted = false;
+      snprintf(buf, sizeof(buf), "\r\n🌙 [MODE JAM MALAM FR-05]: %s\r\n\n",
+               modeJamMalam ? "AKTIF (Alarm Menyala Jika Ada Orang!)" : "NONAKTIF (Siang Normal)");
+      kirimPesan(buf);
       mainkanNada(modeJamMalam ? 3000 : 1800, 80);
       break;
     case 'x':
     case 'X':
       alarmMuted = true;
       matikanBuzzer();
-      Serial.println("\n🔕 [MUTE DARURAT FR-06] Alarm dibungkam oleh Staff! Buzzer dihentikan.\n");
+      kirimPesan("\r\n🔕 [MUTE DARURAT FR-06] Alarm dibungkam! Buzzer dihentikan.\r\n\n");
       break;
     case 'i':
-    case 'I':
-      bacaInfoRadar();
-      break;
+    case 'I': bacaInfoRadar(); break;
     case 'r':
     case 'R':
-      Serial.println("\n♻️ [RESET] Mengembalikan radar ke pengaturan pabrik...");
+      kirimPesan("\r\n♻️ [RESET] Mengembalikan radar ke setelan pabrik...\r\n");
       if (radar.requestFactoryReset()) {
         radar.requestRestart();
-        Serial.println("✅ [SUKSES] Factory reset berhasil!\n");
+        kirimPesan("✅ [SUKSES] Factory reset berhasil!\r\n\n");
       } else {
-        Serial.println("⚠️ [GAGAL] Factory reset tidak direspons.\n");
+        kirimPesan("⚠️ [GAGAL] Factory reset tidak direspons.\r\n\n");
       }
       break;
     case 'h':
-    case 'H':
-      tampilkanMenuBantuan();
-      break;
+    case 'H': tampilkanMenuBantuan(); break;
   }
+}
+
+void prosesInputSemuaJalur() {
+  // 1. Cek perintah dari Bluetooth HP
+  if (pendingBleCmd != 0) {
+    char c = pendingBleCmd;
+    pendingBleCmd = 0;
+    eksekusiPerintah(c);
+  }
+
+  // 2. Cek perintah dari USB Serial Monitor Laptop
+  if (Serial.available()) {
+    char cmd = Serial.read();
+    while (Serial.available()) {
+      char c = Serial.peek();
+      if (c == '\r' || c == '\n') Serial.read();
+      else break;
+    }
+    eksekusiPerintah(cmd);
+  }
+}
+
+void inisialisasiBLE() {
+  BLEDevice::init("SmartRoom-ESP32");
+  pServer = BLEDevice::createServer();
+  pServer->setCallbacks(new MyServerCallbacks());
+
+  BLEService *pService = pServer->createService(SERVICE_UUID);
+
+  pTxCharacteristic = pService->createCharacteristic(
+                        CHARACTERISTIC_UUID_TX,
+                        BLECharacteristic::PROPERTY_NOTIFY
+                      );
+  pTxCharacteristic->addDescriptor(new BLE2902());
+
+  BLECharacteristic *pRxCharacteristic = pService->createCharacteristic(
+                                           CHARACTERISTIC_UUID_RX,
+                                           BLECharacteristic::PROPERTY_WRITE
+                                         );
+  pRxCharacteristic->setCallbacks(new MyRxCallbacks());
+
+  pService->start();
+
+  BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
+  pAdvertising->addServiceUUID(SERVICE_UUID);
+  pAdvertising->setScanResponse(true);
+  pAdvertising->setMinPreferred(0x06);
+  pAdvertising->setMinPreferred(0x12);
+  BLEDevice::startAdvertising();
+
+  Serial.println("📡 [BLE] Bluetooth Aktif! Nama: 'SmartRoom-ESP32' (Siap dikonek dari HP)");
 }
 
 void setup() {
@@ -239,36 +337,51 @@ void setup() {
   delay(2000);
 
   Serial.println("\n=====================================================================");
-  Serial.println("  [SmartRoomMonitor] Pengujian Maksimal Radar HLK-LD2410 (Modul M3)");
-  Serial.println("  Fitur: Auto-Pin Swap | Limit Jarak 0.5m | Simulasi FR-05 & FR-06");
+  Serial.println("  [SmartRoomMonitor] Radar HLK-LD2410 (M3) + BLE Serial Control");
   Serial.println("=====================================================================");
 
+  // Aktifkan Bluetooth BLE agar bisa dipantau & dikontrol dari HP
+  inisialisasiBLE();
+
+  // Hubungkan ke Radar
   if (hubungkanRadarOtomatis()) {
-    // Nada sambut sukses
     mainkanNada(2000, 60);
     delay(50);
     mainkanNada(2800, 90);
 
-    // Otomatis limit jarak ke ~0.5m - 0.75m (Gate 1, Timeout 2 detik) sesuai permintaan
-    aturBatasJarakGate(1, 2, "Meja Kerja (~0.5m - 0.75m)");
+    // 1. Set batas jarak ke Gate 2 (~1.5m) karena protokol LD2410 baru mengaktifkan
+    //    deteksi napas/diam (stationary) mulai dari Gate 2 ke atas!
+    aturBatasJarakGate(2, 5, "Meja Dekat (~1.50m / Gate 2)");
+
+    // 2. Pertajam sensitivitas deteksi diam (napas)
+    optimalkanSensitivitasNapas();
+
     bacaInfoRadar();
   } else {
-    Serial.println("⚠️ [PERINGATAN] Radar belum terdeteksi saat boot. Pastikan daya 5V & GND menyala.");
+    Serial.println("⚠️ [PERINGATAN] Radar belum merespons saat boot. Cek kabel 5V & Common GND.");
   }
 
   tampilkanMenuBantuan();
 }
 
 void loop() {
-  // 1. Baca stream paket radar secara kontinu (wajib non-blocking)
   radar.read();
+  prosesInputSemuaJalur();
 
-  // 2. Cek apakah ada perintah ketikan dari pengguna di Serial Monitor
-  prosesInputSerial();
+  // Rekoneksi otomatis BLE jika HP terputus
+  if (!bleConnected && oldBleConnected) {
+    delay(300);
+    pServer->startAdvertising();
+    oldBleConnected = bleConnected;
+  }
+  if (bleConnected && !oldBleConnected) {
+    oldBleConnected = bleConnected;
+  }
 
-  // 3. Tampilkan telemetri setiap 500 ms
-  if (millis() - lastPrintTime >= 500) {
+  // Tampilkan telemetri sesuai interval (default 1000 ms, bisa diubah ke 3000 ms pakai 't')
+  if (millis() - lastPrintTime >= printIntervalMs) {
     lastPrintTime = millis();
+    char barisOut[160];
 
     if (radar.isConnected()) {
       bool adaOrang = radar.presenceDetected();
@@ -284,38 +397,37 @@ void loop() {
       cetakBarEnergi(energiGerak, barGerak);
       cetakBarEnergi(energiDiam, barDiam);
 
-      // Tentukan Label Status FR-05 (Tidak Ada / Bergerak / Diam)
-      const char* statusFR05 = "TIDAK ADA";
+      const char* statusFR05 = "KOSONG";
       if (adaOrang) {
         if (bergerak) statusFR05 = "BERGERAK";
         else if (diam) statusFR05 = "DIAM";
       } else {
-        // Jika ruangan kembali kosong, reset status mute untuk kejadian berikutnya
         alarmMuted = false;
       }
 
-      // Cetak Baris Telemetri Lengkap
       if (!adaOrang) {
-        Serial.printf("🔲 [STATUS: %-9s] Ruangan Kosong | Mode: %s\n",
-                      statusFR05, modeJamMalam ? "🌙 MALAM" : "☀️ SIANG");
+        snprintf(barisOut, sizeof(barisOut), "🔲 [%-8s] Aman | Mode: %s\r\n",
+                 statusFR05, modeJamMalam ? "🌙MALAM" : "☀️SIANG");
+        kirimPesan(barisOut);
         matikanBuzzer();
       } else {
-        Serial.printf("🎯 [STATUS: %-9s] Gerak: %3dcm %s %3d%% | Diam/Napas: %3dcm %s %3d%% | %s\n",
-                      statusFR05,
-                      jarakGerak, barGerak, energiGerak,
-                      jarakDiam, barDiam, energiDiam,
-                      modeJamMalam ? (alarmMuted ? "🔕 MUTE" : "🚨 ALARM!") : "☀️ SIANG");
+        snprintf(barisOut, sizeof(barisOut),
+                 "🎯 [%-8s] Gerak:%3dcm %s%3d%% | Diam:%3dcm %s%3d%% | %s\r\n",
+                 statusFR05,
+                 jarakGerak, barGerak, energiGerak,
+                 jarakDiam, barDiam, energiDiam,
+                 modeJamMalam ? (alarmMuted ? "🔕MUTE" : "🚨ALARM") : "☀️SIANG");
+        kirimPesan(barisOut);
 
-        // Logika FR-05 & FR-06: Bunyi peringatan jika Jam Malam & belum di-Mute
         if (modeJamMalam && !alarmMuted) {
-          Serial.println("   ⚠️ [PERINGATAN JAM MALAM FR-05] Terdeteksi aktivitas! (Ketik 'x' untuk MUTE FR-06)");
+          kirimPesan("   ⚠️ [ALARM JAM MALAM FR-05] Ketik 'x' untuk MUTE!\r\n");
           bunyiAlarmJamMalam();
         } else {
           matikanBuzzer();
         }
       }
     } else {
-      Serial.println("⏳ [MENUNGGU RADAR] Belum ada frame UART masuk (Cek suplai 5V & Common GND)...");
+      kirimPesan("⏳ [MENUNGGU RADAR] Cek suplai 5V & Common GND...\r\n");
     }
   }
 }
