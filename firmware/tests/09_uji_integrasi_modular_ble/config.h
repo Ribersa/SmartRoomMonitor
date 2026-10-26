@@ -35,8 +35,8 @@
 
 // --- Parameter Lampu & Relay 5V (SRS v0.9 FR-08) ---
 #define AMBANG_CAHAYA_GELAP_LUX    50.0f // Di bawah 50 Lux dianggap gelap
-#define RELAY_TRIGGER_ACTIVE       LOW   // Active-LOW trigger modul relay
-#define RELAY_TRIGGER_INACTIVE     HIGH
+#define RELAY_TRIGGER_ACTIVE       HIGH  // Active-HIGH trigger: HIGH = Relay ON (Klik/Lampu Nyala)
+#define RELAY_TRIGGER_INACTIVE     LOW   // LOW = Relay OFF (Lepas/Lampu Padam)
 #define TIMEOUT_KOSONG_LAMPU_MS    10000 // 10 detik tanpa orang sebelum lampu otomatis mati
 
 // --- UUID Standar Nordic Semiconductor UART Service (NUS) ---
