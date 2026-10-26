@@ -29,9 +29,10 @@ struct TelemetriData {
   const char* labelCahaya;
   bool bh1750Ok;
 
-  // Modul M3: Radar Keberadaan & Napas
+  // Modul M3: Radar Keberadaan & Napas (Terfilter Anti-False-Positive)
   bool radarOk;
   bool adaOrang;
+  bool sedangVerifikasi;
   bool bergerak;
   bool diam;
   uint16_t jarakGerak;
@@ -41,6 +42,13 @@ struct TelemetriData {
   char barGerak[14];
   char barDiam[14];
   const char* statusRadar;
+};
+
+// State Machine 3-Tahap untuk membedakan Manusia vs Benda Jatuh/Dilempar
+enum StateKehadiranRadar : uint8_t {
+  STATE_RADAR_KOSONG = 0,       // Tidak ada target valid
+  STATE_RADAR_VERIFIKASI = 1,   // Sinyal masuk < 1.5 detik (menguji durasi & komponen napas/still)
+  STATE_RADAR_MANUSIA_HADIR = 2 // Terkonfirmasi manusia (memicu Lampu FR-08 / Alarm FR-05)
 };
 
 class SensorManager {
@@ -58,7 +66,14 @@ private:
   int _activeRxPin;
   int _activeTxPin;
 
+  // Variabel State Machine Filter Anti-False-Positive Radar
+  StateKehadiranRadar _stateKehadiran;
+  unsigned long _waktuMulaiVerifikasi;
+  unsigned long _waktuTerakhirSinyalAda;
+  bool _jejakNapasTerdeteksi;
+
   bool hubungkanRadarAutoSwap();
+  void evaluasiFilterKehadiran();
   void cetakBarEnergi(uint8_t energi, char* bufferOut);
 
 public:

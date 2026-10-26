@@ -26,8 +26,17 @@
 
 // --- Parameter Radar mmWave Hilink HLK-LD2410 ---
 #define RADAR_DEFAULT_GATE_MAX         2     // ~1.50m (Gate 2 - Meja Dekat)
-#define RADAR_DEFAULT_TIMEOUT_DETIK    5     // 5 detik timeout keberadaan
+#define RADAR_DEFAULT_TIMEOUT_DETIK    3     // 3 detik hardware timeout (dikombinasi filter software)
 #define RADAR_BREATHING_THRESHOLD      15    // Ambang batas napas mikro peka (15%)
+
+// --- Parameter Filter Anti-False-Positive Radar (3-Layer Human Validator) ---
+#define RADAR_CONFIRM_DELAY_MS         1500  // Layer 1 (On-Delay): Tahan 1.5 detik sebelum sah dianggap manusia
+#define RADAR_GLITCH_TOLERANCE_MS      400   // Toleransi jeda frame gelombang selama fase verifikasi (ms)
+#define RADAR_BIOMETRIC_STILL_MIN      20    // Layer 2 (Moving+Still): Wajib ada jejak napas/mikro-gerak >= 20%
+#define RADAR_ENTRY_MOVING_THRESHOLD   45    // Layer 3 (Histeresis): Ambang gerak masuk ketat (45%)
+#define RADAR_ENTRY_STILL_THRESHOLD    25    // Layer 3 (Histeresis): Ambang diam masuk ketat (25%)
+#define RADAR_HOLD_THRESHOLD           15    // Layer 3 (Histeresis): Ambang tahan keberadaan longgar (15%)
+#define RADAR_HOLD_GRACE_MS            3000  // Masa tahan ekstra saat sinyal napas melemah sesaat (3 detik)
 
 // --- Parameter Kipas 5V (SRS v0.9 FR-02) ---
 #define SUHU_KIPAS_ON              31.0f // Kipas menyala saat suhu > 31.0 °C

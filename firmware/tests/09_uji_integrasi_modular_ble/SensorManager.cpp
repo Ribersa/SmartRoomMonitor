@@ -11,7 +11,11 @@ SensorManager::SensorManager()
     _bh1750Ok(false),
     _radarOk(false),
     _activeRxPin(PIN_RADAR_RX),
-    _activeTxPin(PIN_RADAR_TX) {}
+    _activeTxPin(PIN_RADAR_TX),
+    _stateKehadiran(STATE_RADAR_KOSONG),
+    _waktuMulaiVerifikasi(0),
+    _waktuTerakhirSinyalAda(0),
+    _jejakNapasTerdeteksi(false) {}
 
 bool SensorManager::hubungkanRadarAutoSwap() {
   Serial.print(F("🔄 [UART] Inisialisasi radar (RX=18, TX=17)... "));
@@ -97,6 +101,81 @@ void SensorManager::begin() {
 
 void SensorManager::updateRadar() {
   _radar.read();
+  evaluasiFilterKehadiran();
+}
+
+void SensorManager::evaluasiFilterKehadiran() {
+  if (!_radar.isConnected()) {
+    _stateKehadiran = STATE_RADAR_KOSONG;
+    _jejakNapasTerdeteksi = false;
+    return;
+  }
+
+  unsigned long now = millis();
+  bool rawHadir = _radar.presenceDetected();
+  uint8_t eGerak = _radar.movingTargetEnergy();
+  uint8_t eDiam  = _radar.stationaryTargetEnergy();
+
+  switch (_stateKehadiran) {
+    case STATE_RADAR_KOSONG: {
+      // Layer 3 (Strict Entry Hysteresis): Harus melampaui ambang masuk ketat untuk mulai verifikasi
+      bool sinyalMasukKuat = rawHadir &&
+                             (eGerak >= RADAR_ENTRY_MOVING_THRESHOLD ||
+                              eDiam  >= RADAR_ENTRY_STILL_THRESHOLD);
+      if (sinyalMasukKuat) {
+        _stateKehadiran = STATE_RADAR_VERIFIKASI;
+        _waktuMulaiVerifikasi = now;
+        _waktuTerakhirSinyalAda = now;
+        _jejakNapasTerdeteksi = (eDiam >= RADAR_BIOMETRIC_STILL_MIN);
+      }
+      break;
+    }
+
+    case STATE_RADAR_VERIFIKASI: {
+      // Layer 2 (Moving + Still Biometric Check): Catat jika ada jejak pantulan napas/mikro-gerak
+      if (eDiam >= RADAR_BIOMETRIC_STILL_MIN) {
+        _jejakNapasTerdeteksi = true;
+      }
+
+      bool sinyalMasihAda = rawHadir &&
+                            (eGerak >= RADAR_HOLD_THRESHOLD ||
+                             eDiam  >= RADAR_HOLD_THRESHOLD);
+
+      if (sinyalMasihAda) {
+        _waktuTerakhirSinyalAda = now;
+
+        // Layer 1 (On-Delay Persistence 1.5s) + Layer 2 (Wajib ada bukti Still/Napas)
+        if ((now - _waktuMulaiVerifikasi >= RADAR_CONFIRM_DELAY_MS) && _jejakNapasTerdeteksi) {
+          _stateKehadiran = STATE_RADAR_MANUSIA_HADIR;
+        }
+      } else {
+        // Jika sinyal hilang sebelum 1.5 detik (melebihi toleransi glitch 400ms) -> Objek dilempar/jatuh!
+        if (now - _waktuTerakhirSinyalAda > RADAR_GLITCH_TOLERANCE_MS) {
+          _stateKehadiran = STATE_RADAR_KOSONG;
+          _jejakNapasTerdeteksi = false;
+        }
+      }
+      break;
+    }
+
+    case STATE_RADAR_MANUSIA_HADIR: {
+      // Layer 3 (Hold Hysteresis): Gunakan ambang bawah (15%) agar napas halus tetap terjaga
+      bool sinyalTahan = rawHadir &&
+                         (eGerak >= RADAR_HOLD_THRESHOLD ||
+                          eDiam  >= RADAR_HOLD_THRESHOLD);
+
+      if (sinyalTahan) {
+        _waktuTerakhirSinyalAda = now;
+      } else {
+        // Grace period 3 detik sebelum ruangan dinyatakan benar-benar kosong
+        if (now - _waktuTerakhirSinyalAda > RADAR_HOLD_GRACE_MS) {
+          _stateKehadiran = STATE_RADAR_KOSONG;
+          _jejakNapasTerdeteksi = false;
+        }
+      }
+      break;
+    }
+  }
 }
 
 void SensorManager::cetakBarEnergi(uint8_t energi, char* bufferOut) {
@@ -164,9 +243,13 @@ TelemetriData SensorManager::bacaSemua() {
   strcpy(d.barDiam,  "[..........]");
 
   if (d.radarOk) {
-    d.adaOrang  = _radar.presenceDetected();
-    d.bergerak  = _radar.movingTargetDetected();
-    d.diam      = _radar.stationaryTargetDetected();
+    evaluasiFilterKehadiran();
+
+    // Status kehadiran yang dikirim ke Lampu (FR-08) & Alarm (FR-05) sudah terfilter!
+    d.adaOrang         = (_stateKehadiran == STATE_RADAR_MANUSIA_HADIR);
+    d.sedangVerifikasi = (_stateKehadiran == STATE_RADAR_VERIFIKASI);
+    d.bergerak         = _radar.movingTargetDetected();
+    d.diam             = _radar.stationaryTargetDetected();
 
     d.jarakGerak  = _radar.movingTargetDistance();
     d.energiGerak = _radar.movingTargetEnergy();
@@ -177,9 +260,11 @@ TelemetriData SensorManager::bacaSemua() {
     cetakBarEnergi(d.energiDiam, d.barDiam);
 
     if (d.adaOrang) {
-      if (d.bergerak) d.statusRadar = "BERGERAK";
+      if (d.bergerak && d.energiGerak >= RADAR_ENTRY_MOVING_THRESHOLD) d.statusRadar = "BERGERAK";
       else if (d.diam) d.statusRadar = "DIAM";
       else d.statusRadar = "HADIR";
+    } else if (d.sedangVerifikasi) {
+      d.statusRadar = "VERIF...";
     } else {
       d.statusRadar = "KOSONG";
     }
