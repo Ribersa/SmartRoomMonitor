@@ -32,15 +32,17 @@ BleManager::BleManager()
     _buzzer(nullptr),
     _sensors(nullptr),
     _fan(nullptr),
+    _light(nullptr),
     _modeJamMalam(false),
     _intervalTelemetriMs(INTERVAL_TELEMETRI_DEFAULT_MS) {
   s_instance = this;
 }
 
-void BleManager::begin(BuzzerManager* buzzer, SensorManager* sensors, FanManager* fan) {
+void BleManager::begin(BuzzerManager* buzzer, SensorManager* sensors, FanManager* fan, LightManager* light) {
   _buzzer = buzzer;
   _sensors = sensors;
   _fan = fan;
+  _light = light;
 
   BLEDevice::init(BLE_DEVICE_NAME);
   _pServer = BLEDevice::createServer();
@@ -89,6 +91,7 @@ void BleManager::tampilkanMenuBantuan() {
   kirimPesan("  [4] Jarak Radar: Jarak Maks   (~6.00m / Gate 8, Peka Napas)\r\n");
   kirimPesan("  [s] Boost Sensitivitas Napas/Diam (Threshold = 15%)\r\n");
   kirimPesan("  [k] Ganti Mode KIPAS 5V (FR-02): OTOMATIS -> SELALU ON -> OFF\r\n");
+  kirimPesan("  [l] Ganti Mode LAMPU 5V (FR-08): OTOMATIS -> SELALU ON -> OFF\r\n");
   kirimPesan("  [m] Toggle Simulasi JAM MALAM 22:00-06:00 (FR-05 Alarm Radar)\r\n");
   kirimPesan("  [x] Tekan MUTE DARURAT (FR-06 Bungkam Semua Alarm Buzzer)\r\n");
   kirimPesan("  [t] Toggle Interval Telemetri (1 dtk vs 2 dtk)\r\n");
@@ -142,6 +145,16 @@ void BleManager::eksekusiPerintah(char cmd) {
         _fan->cycleMode();
         snprintf(buf, sizeof(buf), "\r\n🌀 [KIPAS FR-02] Mode diubah ke: %s (Status: %s)\r\n\n",
                  _fan->getModeLabel(), _fan->getStatusLabel());
+        kirimPesan(buf);
+        if (_buzzer) _buzzer->nadaKonfirmasi();
+      }
+      break;
+    case 'l':
+    case 'L':
+      if (_light) {
+        _light->cycleMode();
+        snprintf(buf, sizeof(buf), "\r\n💡 [LAMPU FR-08] Mode diubah ke: %s (Status: %s)\r\n\n",
+                 _light->getModeLabel(), _light->getStatusLabel());
         kirimPesan(buf);
         if (_buzzer) _buzzer->nadaKonfirmasi();
       }
@@ -249,6 +262,12 @@ void BleManager::kirimTelemetri(const TelemetriData& d) {
   // Aktuator Kipas 5V (FR-02)
   if (_fan) {
     snprintf(baris, sizeof(baris), "🌀  Kipas: %s\r\n", _fan->getStatusLabel());
+    kirimPesan(baris);
+  }
+
+  // Aktuator Lampu 5V (FR-08)
+  if (_light) {
+    snprintf(baris, sizeof(baris), "💡  Lampu: %s\r\n", _light->getStatusLabel());
     kirimPesan(baris);
   }
 

@@ -8,6 +8,7 @@
 #include "BuzzerManager.h"
 #include "SensorManager.h"
 #include "FanManager.h"
+#include "LightManager.h"
 
 // ==============================================================================
 // BleManager.h - Pengelola BLE Nordic UART Service (NUS) & Perintah Dua Arah
@@ -23,6 +24,7 @@ private:
   BuzzerManager* _buzzer;
   SensorManager* _sensors;
   FanManager*    _fan;
+  LightManager*  _light;
 
   bool _modeJamMalam;
   unsigned long _intervalTelemetriMs;
@@ -31,7 +33,7 @@ private:
 
 public:
   BleManager();
-  void begin(BuzzerManager* buzzer, SensorManager* sensors, FanManager* fan);
+  void begin(BuzzerManager* buzzer, SensorManager* sensors, FanManager* fan, LightManager* light);
   void update(); // Tangani rekoneksi advertising & perintah masuk
   void kirimPesan(const char* teks);
   void kirimTelemetri(const TelemetriData& d);

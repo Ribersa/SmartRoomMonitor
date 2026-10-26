@@ -1,27 +1,26 @@
 // ==============================================================================
-// 09_uji_integrasi_modular_ble.ino (FIRMWARE MODULAR MULTI-SENSOR + FAN + BLE)
+// 09_uji_integrasi_modular_ble.ino (FIRMWARE MODULAR MULTI-SENSOR + FAN + LIGHT + BLE)
 // Proyek: SmartRoomMonitor (RPL) - Tim Pengembang ESP32-S3
 // PIC Modul M3: Deswiryawan Saragih (241111008)
-// Deskripsi: Versi modular de-bloat dari pengujian integrasi seluruh sensor
-//            (SHT30-D, ENS160, BH1750, HLK-LD2410) + Buzzer + Fan MOSFET + BLE NUS.
-//            Struktur kode terpecah bersih ke dalam:
-//              - config.h        : Pinout, baud, dan konstanta (termasuk FR-02)
-//              - BuzzerManager   : Driver suara, nada alarm, & MUTE
-//              - SensorManager   : Pembacaan 4 sensor & auto-kompensasi
-//              - FanManager      : Kendali Kipas 5V MOSFET & histeresis suhu FR-02
-//              - BleManager      : Bluetooth LE NUS & remote control HP
+// Deskripsi: Versi modular de-bloat terlengkap dari seluruh subsistem:
+//            - Sensor  : SHT30-D (M1), ENS160 (M2), HLK-LD2410 (M3), BH1750 (M4)
+//            - Aktuator: Buzzer (M2/M3), Fan MOSFET (M1), Relay Lampu (M4)
+//            - Wireless: Bluetooth Low Energy 5.0 Nordic UART Service (NUS)
+//            Memenuhi 100% dari 8 Kebutuhan Fungsional (FR-01 s.d. FR-08) SRS v0.9!
 // ==============================================================================
 
 #include "config.h"
 #include "BuzzerManager.h"
 #include "SensorManager.h"
 #include "FanManager.h"
+#include "LightManager.h"
 #include "BleManager.h"
 
-// Instansiasi Modul Manajer
+// Instansiasi Seluruh Modul Manajer
 BuzzerManager buzzer;
 SensorManager sensors;
 FanManager    fan;
+LightManager  light;
 BleManager    ble;
 
 unsigned long lastTick = 0;
@@ -30,15 +29,16 @@ void setup() {
   Serial.begin(SERIAL_BAUD);
   delay(1500);
 
-  Serial.println(F("\n======================================================="));
-  Serial.println(F("  [SmartRoomMonitor] FIRMWARE MODULAR MULTI-SENSOR + FAN"));
-  Serial.println(F("======================================================="));
+  Serial.println(F("\n====================================================================="));
+  Serial.println(F("  [SmartRoomMonitor] FIRMWARE MODULAR LENGKAP (ALL SENSORS & ACTUATORS)"));
+  Serial.println(F("====================================================================="));
 
   // Inisialisasi masing-masing subsistem
   buzzer.begin();
   sensors.begin();
   fan.begin();
-  ble.begin(&buzzer, &sensors, &fan);
+  light.begin();
+  ble.begin(&buzzer, &sensors, &fan, &light);
 
   // Sambut boot sukses & tampilkan menu
   buzzer.nadaSambutBoot();
@@ -56,16 +56,19 @@ void loop() {
   if (millis() - lastTick >= ble.getIntervalMs()) {
     lastTick = millis();
 
-    // Baca seluruh sensor dengan auto-kompensasi suhu
+    // A. Baca seluruh sensor dengan auto-kompensasi suhu
     TelemetriData data = sensors.bacaSemua();
 
-    // Evaluasi histeresis termal kipas FR-02 (nyala > 31 °C, mati <= 30 °C)
+    // B. Evaluasi histeresis termal kipas FR-02 (nyala > 31 °C, mati <= 30 °C)
     fan.evaluasiSuhu(data.suhu);
 
-    // Evaluasi alarm buzzer berdasarkan kondisi udara & jam malam
+    // C. Evaluasi kontrol lampu adaptif FR-08 (nyala jika gelap < 50 Lux & ada orang)
+    light.evaluasi(data.lux, data.adaOrang);
+
+    // D. Evaluasi alarm buzzer berdasarkan kondisi udara & jam malam
     buzzer.evaluasiAlarm(data.aqi, data.adaOrang, ble.isJamMalam());
 
-    // Broadcast hasil telemetri ke smartphone via BLE & laptop via Serial
+    // E. Broadcast hasil telemetri terpadu ke smartphone via BLE & Serial
     ble.kirimTelemetri(data);
   }
 }
