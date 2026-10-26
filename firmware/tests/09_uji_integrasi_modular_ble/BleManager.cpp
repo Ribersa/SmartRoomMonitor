@@ -31,14 +31,16 @@ BleManager::BleManager()
     _oldBleConnected(false),
     _buzzer(nullptr),
     _sensors(nullptr),
+    _fan(nullptr),
     _modeJamMalam(false),
     _intervalTelemetriMs(INTERVAL_TELEMETRI_DEFAULT_MS) {
   s_instance = this;
 }
 
-void BleManager::begin(BuzzerManager* buzzer, SensorManager* sensors) {
+void BleManager::begin(BuzzerManager* buzzer, SensorManager* sensors, FanManager* fan) {
   _buzzer = buzzer;
   _sensors = sensors;
+  _fan = fan;
 
   BLEDevice::init(BLE_DEVICE_NAME);
   _pServer = BLEDevice::createServer();
@@ -86,6 +88,7 @@ void BleManager::tampilkanMenuBantuan() {
   kirimPesan("  [3] Jarak Radar: Kamar Penuh  (~4.50m / Gate 6, Peka Napas)\r\n");
   kirimPesan("  [4] Jarak Radar: Jarak Maks   (~6.00m / Gate 8, Peka Napas)\r\n");
   kirimPesan("  [s] Boost Sensitivitas Napas/Diam (Threshold = 15%)\r\n");
+  kirimPesan("  [k] Ganti Mode KIPAS 5V (FR-02): OTOMATIS -> SELALU ON -> OFF\r\n");
   kirimPesan("  [m] Toggle Simulasi JAM MALAM 22:00-06:00 (FR-05 Alarm Radar)\r\n");
   kirimPesan("  [x] Tekan MUTE DARURAT (FR-06 Bungkam Semua Alarm Buzzer)\r\n");
   kirimPesan("  [t] Toggle Interval Telemetri (1 dtk vs 2 dtk)\r\n");
@@ -130,6 +133,16 @@ void BleManager::eksekusiPerintah(char cmd) {
       if (_sensors) {
         _sensors->boostSensitivitasNapas();
         kirimPesan("🫁 [KALIBRASI] Threshold napas mikro diset ke 15% (Sangat Peka)!\r\n");
+        if (_buzzer) _buzzer->nadaKonfirmasi();
+      }
+      break;
+    case 'k':
+    case 'K':
+      if (_fan) {
+        _fan->cycleMode();
+        snprintf(buf, sizeof(buf), "\r\n🌀 [KIPAS FR-02] Mode diubah ke: %s (Status: %s)\r\n\n",
+                 _fan->getModeLabel(), _fan->getStatusLabel());
+        kirimPesan(buf);
         if (_buzzer) _buzzer->nadaKonfirmasi();
       }
       break;
@@ -232,6 +245,12 @@ void BleManager::kirimTelemetri(const TelemetriData& d) {
   snprintf(baris, sizeof(baris), "🎯  Radar: [%-8s] Grk:%3dcm %s%3d%% | Diam:%3dcm %s%3d%%\r\n",
            d.statusRadar, d.jarakGerak, d.barGerak, d.energiGerak, d.jarakDiam, d.barDiam, d.energiDiam);
   kirimPesan(baris);
+
+  // Aktuator Kipas 5V (FR-02)
+  if (_fan) {
+    snprintf(baris, sizeof(baris), "🌀  Kipas: %s\r\n", _fan->getStatusLabel());
+    kirimPesan(baris);
+  }
 
   // Status Keamanan & Buzzer
   const char* statusBuzzer = "🔕MATI";

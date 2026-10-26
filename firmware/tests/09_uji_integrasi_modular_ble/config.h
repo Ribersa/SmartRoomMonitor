@@ -13,6 +13,7 @@
 #define PIN_RADAR_RX       18   // UART1 terhubung ke TX Radar
 #define PIN_RADAR_TX       17   // UART1 terhubung ke RX Radar
 #define PIN_BUZZER         6    // Driver Transistor PNP Active-LOW
+#define PIN_FAN_MOSFET     7    // Gate Kontrol Driver MOSFET Kipas 5V (FR-02)
 
 // --- Baud Rate Komunikasi ---
 #define SERIAL_BAUD        115200
@@ -26,6 +27,10 @@
 #define RADAR_DEFAULT_GATE_MAX         2     // ~1.50m (Gate 2 - Meja Dekat)
 #define RADAR_DEFAULT_TIMEOUT_DETIK    5     // 5 detik timeout keberadaan
 #define RADAR_BREATHING_THRESHOLD      15    // Ambang batas napas mikro peka (15%)
+
+// --- Ambang Batas Suhu Kipas (SRS v0.9 FR-02) ---
+#define SUHU_KIPAS_ON              31.0f // Kipas menyala saat suhu > 31.0 °C
+#define SUHU_KIPAS_HISTERESIS      1.0f  // Kipas mati setelah suhu turun 1.0 °C (<= 30.0 °C)
 
 // --- UUID Standar Nordic Semiconductor UART Service (NUS) ---
 #define BLE_DEVICE_NAME        "SmartRoom-ESP32"
