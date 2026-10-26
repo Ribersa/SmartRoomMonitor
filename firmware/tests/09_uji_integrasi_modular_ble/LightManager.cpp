@@ -2,6 +2,8 @@
 
 // ==============================================================================
 // LightManager.cpp - Implementasi Logika Kontrol Lampu Adaptif FR-08
+// Menggunakan teknik Open-Drain / Hi-Z Switching untuk mengatasi kebocoran
+// tegangan 1.7V optocoupler modul relay 5V saat dikendalikan GPIO 3.3V ESP32.
 // ==============================================================================
 
 LightManager::LightManager()
@@ -11,11 +13,19 @@ LightManager::LightManager()
 
 void LightManager::terapkanState(bool nyala) {
   _lightState = nyala;
-  digitalWrite(PIN_RELAY_LIGHT, _lightState ? RELAY_TRIGGER_ACTIVE : RELAY_TRIGGER_INACTIVE);
+  if (_lightState) {
+    // NYALA: Tarik pin ke GND (Active-LOW) untuk menyalakan optocoupler & relay
+    pinMode(PIN_RELAY_LIGHT, OUTPUT);
+    digitalWrite(PIN_RELAY_LIGHT, LOW);
+  } else {
+    // MATI: Ubah pin ke mode INPUT (High-Impedance / Mengambang).
+    // Ini memutus arus total dan mencegah selisih voltase (5V - 3.3V = 1.7V)
+    // yang membuat optocoupler menyala terus-menerus.
+    pinMode(PIN_RELAY_LIGHT, INPUT);
+  }
 }
 
 void LightManager::begin() {
-  pinMode(PIN_RELAY_LIGHT, OUTPUT);
   terapkanState(false); // Pastikan relay lepas / lampu mati saat boot awal
   _lastPresenceTime = millis();
   Serial.println(F("✅ [OK] LightManager (GPIO 15 Relay) Siap! Mode: OTOMATIS"));
@@ -56,7 +66,6 @@ void LightManager::evaluasi(float lux, bool adaOrang) {
           if (now - _lastPresenceTime >= TIMEOUT_KOSONG_LAMPU_MS) {
             terapkanState(false); // Padamkan lampu karena orang sudah pergi
           }
-          // Jika belum timeout, pertahankan nyala agar tidak langsung gelap gulita seketika
         }
       }
       break;
