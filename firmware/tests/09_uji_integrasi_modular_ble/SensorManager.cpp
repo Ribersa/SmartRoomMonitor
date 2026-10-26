@@ -290,6 +290,43 @@ void SensorManager::boostSensitivitasNapas() {
   _radar.setGateSensitivityThreshold(6, 45, 25);
 }
 
+bool SensorManager::setBluetoothRadar(bool aktif) {
+  if (!_radar.isConnected()) return false;
+
+  // Frame Protokol Resmi Hi-Link HLK-LD2410 (Little-Endian)
+  const uint8_t cmdMasukConfig[] = {
+    0xFD, 0xFC, 0xFB, 0xFA, 0x04, 0x00, 0xFF, 0x00, 0x01, 0x00, 0x04, 0x03, 0x02, 0x01
+  };
+  const uint8_t cmdKeluarConfig[] = {
+    0xFD, 0xFC, 0xFB, 0xFA, 0x02, 0x00, 0xFE, 0x00, 0x04, 0x03, 0x02, 0x01
+  };
+  uint8_t cmdBluetooth[] = {
+    0xFD, 0xFC, 0xFB, 0xFA, 0x04, 0x00, 0xA4, 0x00, (uint8_t)(aktif ? 0x01 : 0x00), 0x00, 0x04, 0x03, 0x02, 0x01
+  };
+
+  // 1. Masuk Mode Konfigurasi
+  Serial1.write(cmdMasukConfig, sizeof(cmdMasukConfig));
+  Serial1.flush();
+  delay(150);
+
+  // 2. Kirim Perintah Kontrol Bluetooth (0x00A4: 0x0000 = Matikan, 0x0001 = Nyalakan)
+  Serial1.write(cmdBluetooth, sizeof(cmdBluetooth));
+  Serial1.flush();
+  delay(150);
+
+  // 3. Keluar Mode Konfigurasi (Menyimpan permanen ke Flash/NVM & Restart Radar)
+  Serial1.write(cmdKeluarConfig, sizeof(cmdKeluarConfig));
+  Serial1.flush();
+  delay(300);
+
+  // Bersihkan sisa frame respons dari buffer serial
+  while (Serial1.available()) {
+    Serial1.read();
+  }
+
+  return true;
+}
+
 void SensorManager::bacaInfoRadar(char* bufferOut, size_t maxLen) {
   if (!_radar.isConnected()) {
     snprintf(bufferOut, maxLen, "Radar tidak terhubung!\r\n");

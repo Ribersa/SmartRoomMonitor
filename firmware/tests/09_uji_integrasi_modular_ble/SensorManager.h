@@ -85,6 +85,7 @@ public:
   // Pengaturan & Kalibrasi Radar M3
   bool setRadarGate(uint8_t gateMaks, uint16_t timeoutDetik, const char* label);
   void boostSensitivitasNapas();
+  bool setBluetoothRadar(bool aktif);
   void bacaInfoRadar(char* bufferOut, size_t maxLen);
 
   bool isRadarConnected();

@@ -34,6 +34,7 @@ BleManager::BleManager()
     _fan(nullptr),
     _light(nullptr),
     _modeJamMalam(false),
+    _radarBleAktif(true),
     _intervalTelemetriMs(INTERVAL_TELEMETRI_DEFAULT_MS) {
   s_instance = this;
 }
@@ -90,6 +91,7 @@ void BleManager::tampilkanMenuBantuan() {
   kirimPesan("  [3] Jarak Radar: Kamar Penuh  (~4.50m / Gate 6, Peka Napas)\r\n");
   kirimPesan("  [4] Jarak Radar: Jarak Maks   (~6.00m / Gate 8, Peka Napas)\r\n");
   kirimPesan("  [s] Boost Sensitivitas Napas/Diam (Threshold = 15%)\r\n");
+  kirimPesan("  [b] Toggle Bluetooth Onboard Radar (Matikan radio 2.4GHz agar chip dingin)\r\n");
   kirimPesan("  [k] Ganti Mode KIPAS 5V (FR-02): OTOMATIS -> SELALU ON -> OFF\r\n");
   kirimPesan("  [l] Ganti Mode LAMPU 5V (FR-08): OTOMATIS -> SELALU ON -> OFF\r\n");
   kirimPesan("  [m] Toggle Simulasi JAM MALAM 22:00-06:00 (FR-05 Alarm Radar)\r\n");
@@ -136,6 +138,19 @@ void BleManager::eksekusiPerintah(char cmd) {
       if (_sensors) {
         _sensors->boostSensitivitasNapas();
         kirimPesan("🫁 [KALIBRASI] Threshold napas mikro diset ke 15% (Sangat Peka)!\r\n");
+        if (_buzzer) _buzzer->nadaKonfirmasi();
+      }
+      break;
+    case 'b':
+    case 'B':
+      if (_sensors) {
+        _radarBleAktif = !_radarBleAktif;
+        _sensors->setBluetoothRadar(_radarBleAktif);
+        snprintf(buf, sizeof(buf), "\r\n📶 [RADAR BLE] Bluetooth Onboard LD2410: %s\r\n  >> %s\r\n\n",
+                 _radarBleAktif ? "AKTIF (ON)" : "NONAKTIF (OFF)",
+                 _radarBleAktif ? "Radio 2.4GHz aktif (Bisa dibuka di aplikasi HLKRadarTool)."
+                                : "Radio 2.4GHz dimatikan! Chip radar lebih dingin & bebas interferensi.");
+        kirimPesan(buf);
         if (_buzzer) _buzzer->nadaKonfirmasi();
       }
       break;

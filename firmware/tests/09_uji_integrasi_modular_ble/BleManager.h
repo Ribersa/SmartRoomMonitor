@@ -27,6 +27,7 @@ private:
   LightManager*  _light;
 
   bool _modeJamMalam;
+  bool _radarBleAktif;
   unsigned long _intervalTelemetriMs;
 
   void eksekusiPerintah(char cmd);
