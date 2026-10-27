@@ -30,12 +30,12 @@
 #define RADAR_BREATHING_THRESHOLD      15    // Ambang batas napas mikro peka (15%)
 
 // --- Parameter Filter Anti-False-Positive Radar (3-Layer Human Validator) ---
-#define RADAR_CONFIRM_DELAY_MS         1500  // Layer 1 (On-Delay): Tahan 1.5 detik sebelum sah dianggap manusia
-#define RADAR_GLITCH_TOLERANCE_MS      400   // Toleransi jeda frame gelombang selama fase verifikasi (ms)
-#define RADAR_BIOMETRIC_STILL_MIN      20    // Layer 2 (Moving+Still): Wajib ada jejak napas/mikro-gerak >= 20%
-#define RADAR_ENTRY_MOVING_THRESHOLD   45    // Layer 3 (Histeresis): Ambang gerak masuk ketat (45%)
-#define RADAR_ENTRY_STILL_THRESHOLD    25    // Layer 3 (Histeresis): Ambang diam masuk ketat (25%)
-#define RADAR_HOLD_THRESHOLD           15    // Layer 3 (Histeresis): Ambang tahan keberadaan longgar (15%)
+#define RADAR_CONFIRM_DELAY_MS         800   // Layer 1 (On-Delay): Tahan 800ms (responsif tapi tetap buang lemparan <400ms)
+#define RADAR_GLITCH_TOLERANCE_MS      800   // Toleransi jeda frame (800ms) agar timer verifikasi tidak gampang reset
+#define RADAR_BIOMETRIC_STILL_MIN      20    // Layer 2 (Moving+Still): Jejak napas/mikro-gerak valid (20%)
+#define RADAR_ENTRY_MOVING_THRESHOLD   35    // Layer 3 (Histeresis): Ambang gerak masuk (35%)
+#define RADAR_ENTRY_STILL_THRESHOLD    20    // Layer 3 (Histeresis): Ambang diam masuk (20%)
+#define RADAR_HOLD_THRESHOLD           10    // Layer 3 (Histeresis): Ambang tahan keberadaan longgar (10%)
 #define RADAR_HOLD_GRACE_MS            3000  // Masa tahan ekstra saat sinyal napas melemah sesaat (3 detik)
 
 // --- Parameter Kipas 5V (SRS v0.9 FR-02) ---

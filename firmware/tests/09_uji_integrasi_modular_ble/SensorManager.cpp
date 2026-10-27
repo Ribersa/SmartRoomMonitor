@@ -132,7 +132,7 @@ void SensorManager::evaluasiFilterKehadiran() {
     }
 
     case STATE_RADAR_VERIFIKASI: {
-      // Layer 2 (Moving + Still Biometric Check): Catat jika ada jejak pantulan napas/mikro-gerak
+      // Catat jejak biometrik napas mikro jika terdeteksi
       if (eDiam >= RADAR_BIOMETRIC_STILL_MIN) {
         _jejakNapasTerdeteksi = true;
       }
@@ -144,12 +144,17 @@ void SensorManager::evaluasiFilterKehadiran() {
       if (sinyalMasihAda) {
         _waktuTerakhirSinyalAda = now;
 
-        // Layer 1 (On-Delay Persistence 1.5s) + Layer 2 (Wajib ada bukti Still/Napas)
-        if ((now - _waktuMulaiVerifikasi >= RADAR_CONFIRM_DELAY_MS) && _jejakNapasTerdeteksi) {
+        // Sah sebagai manusia jika salah satu syarat biometrik terpenuhi:
+        // 1. Gerakan aktif berkelanjutan selama >= 800ms (benda jatuh/dilempar pasti mendarat < 400ms)
+        // 2. ATAU terdeteksi pantulan napas/diam (eDiam >= 20%) selama >= 800ms (orang duduk santai)
+        bool durasiCukup = (now - _waktuMulaiVerifikasi >= RADAR_CONFIRM_DELAY_MS);
+        bool gerakAktif  = (eGerak >= RADAR_ENTRY_MOVING_THRESHOLD);
+
+        if (durasiCukup && (gerakAktif || _jejakNapasTerdeteksi)) {
           _stateKehadiran = STATE_RADAR_MANUSIA_HADIR;
         }
       } else {
-        // Jika sinyal hilang sebelum 1.5 detik (melebihi toleransi glitch 400ms) -> Objek dilempar/jatuh!
+        // Objek dilempar/jatuh hilang dalam < 400ms. Jika sinyal mati melebihi toleransi glitch -> batal!
         if (now - _waktuTerakhirSinyalAda > RADAR_GLITCH_TOLERANCE_MS) {
           _stateKehadiran = STATE_RADAR_KOSONG;
           _jejakNapasTerdeteksi = false;
