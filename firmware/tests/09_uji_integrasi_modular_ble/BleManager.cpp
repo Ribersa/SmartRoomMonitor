@@ -82,6 +82,10 @@ void BleManager::kirimPesan(const char* teks) {
     _pTxCharacteristic->notify();
     delay(5); // Jeda aman buffer stack BLE
   }
+  // Tetap kuras buffer UART radar di sela pengiriman paket BLE agar tidak pernah DISCONNECT
+  if (_sensors) {
+    _sensors->updateRadar();
+  }
 }
 
 void BleManager::tampilkanMenuBantuan() {
@@ -158,8 +162,11 @@ void BleManager::eksekusiPerintah(char cmd) {
     case 'K':
       if (_fan) {
         if (_buzzer) _buzzer->nadaKonfirmasi();
-        delay(40); // Pisahkan puncak arus buzzer dari arus kejut (inrush) motor kipas
+        unsigned long tWait = millis();
+        while (millis() - tWait < 50) { if (_sensors) _sensors->updateRadar(); }
         _fan->cycleMode();
+        tWait = millis();
+        while (millis() - tWait < 60) { if (_sensors) _sensors->updateRadar(); }
         snprintf(buf, sizeof(buf), "\r\n🌀 [KIPAS FR-02] Mode diubah ke: %s (Status: %s)\r\n\n",
                  _fan->getModeLabel(), _fan->getStatusLabel());
         kirimPesan(buf);
@@ -169,8 +176,11 @@ void BleManager::eksekusiPerintah(char cmd) {
     case 'L':
       if (_light) {
         if (_buzzer) _buzzer->nadaKonfirmasi();
-        delay(40); // Pisahkan puncak arus buzzer dari arus kejut (inrush) kumparan relay & lampu
+        unsigned long tWait = millis();
+        while (millis() - tWait < 50) { if (_sensors) _sensors->updateRadar(); }
         _light->cycleMode();
+        tWait = millis();
+        while (millis() - tWait < 60) { if (_sensors) _sensors->updateRadar(); }
         snprintf(buf, sizeof(buf), "\r\n💡 [LAMPU FR-08] Mode diubah ke: %s (Status: %s)\r\n\n",
                  _light->getModeLabel(), _light->getStatusLabel());
         kirimPesan(buf);

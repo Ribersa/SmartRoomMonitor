@@ -60,13 +60,26 @@ void loop() {
     TelemetriData data = sensors.bacaSemua();
 
     // B. Evaluasi histeresis termal kipas FR-02 (nyala > 31 °C, mati <= 30 °C)
+    bool kipasSebelumnya = fan.isNyala();
     fan.evaluasiSuhu(data.suhu);
+    if (fan.isNyala() != kipasSebelumnya) {
+      // Beri jeda 60ms sambil tetap membaca radar agar arus kejut kipas tidak bertabrakan dengan relay lampu
+      unsigned long tHold = millis();
+      while (millis() - tHold < 60) { sensors.updateRadar(); }
+    }
 
     // C. Evaluasi kontrol lampu adaptif FR-08 (nyala jika gelap < 50 Lux & ada orang)
+    bool lampuSebelumnya = light.isNyala();
     light.evaluasi(data.lux, data.adaOrang);
+    if (light.isNyala() != lampuSebelumnya) {
+      // Beri jeda 60ms sambil tetap membaca radar agar arus kejut relay/lampu stabil sebelum BLE & Buzzer aktif
+      unsigned long tHold = millis();
+      while (millis() - tHold < 60) { sensors.updateRadar(); }
+    }
 
     // D. Evaluasi alarm buzzer berdasarkan kondisi udara & jam malam
     buzzer.evaluasiAlarm(data.aqi, data.adaOrang, ble.isJamMalam());
+    sensors.updateRadar();
 
     // E. Broadcast hasil telemetri terpadu ke smartphone via BLE & Serial
     ble.kirimTelemetri(data);
