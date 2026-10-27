@@ -94,6 +94,8 @@ void SensorManager::begin() {
   if (_radarOk) {
     setRadarGate(RADAR_DEFAULT_GATE_MAX, RADAR_DEFAULT_TIMEOUT_DETIK, "Meja Dekat (~1.50m / Gate 2)");
     boostSensitivitasNapas();
+    setBluetoothRadar(false); // Default OFF: Matikan radio Bluetooth 2.4GHz LD2410 agar chip dingin
+    Serial.println(F("📶 [OK] Radar LD2410 Siap (Bluetooth Onboard: DEFAULT OFF - Radio 2.4GHz Mati)."));
   } else {
     Serial.println(F("⚠️ [PERINGATAN] Radar belum respons. Cek kabel 5V & Common GND!"));
   }

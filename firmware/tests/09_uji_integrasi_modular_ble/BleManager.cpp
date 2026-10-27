@@ -34,7 +34,7 @@ BleManager::BleManager()
     _fan(nullptr),
     _light(nullptr),
     _modeJamMalam(false),
-    _radarBleAktif(true),
+    _radarBleAktif(false),
     _intervalTelemetriMs(INTERVAL_TELEMETRI_DEFAULT_MS) {
   s_instance = this;
 }
