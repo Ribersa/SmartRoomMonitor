@@ -18,6 +18,8 @@ private:
   ModeLampu _mode;
   bool _lightState; // true = nyala (relay aktif), false = mati
   bool _initialized;
+  bool _perluKalibrasiCahayaSendiri;
+  float _luxPatokanSaatNyala;
   unsigned long _lastPresenceTime;
 
   void terapkanState(bool nyala);

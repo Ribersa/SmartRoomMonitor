@@ -43,10 +43,11 @@
 #define SUHU_KIPAS_HISTERESIS      1.0f  // Kipas mati setelah suhu turun 1.0 °C (<= 30.0 °C)
 
 // --- Parameter Lampu & Relay 5V (SRS v0.9 FR-08) ---
-#define AMBANG_CAHAYA_GELAP_LUX    50.0f // Di bawah 50 Lux dianggap gelap
-#define RELAY_TRIGGER_ACTIVE       HIGH  // Active-HIGH trigger: HIGH = Relay ON (Klik/Lampu Nyala)
-#define RELAY_TRIGGER_INACTIVE     LOW   // LOW = Relay OFF (Lepas/Lampu Padam)
-#define TIMEOUT_KOSONG_LAMPU_MS    10000 // 10 detik tanpa orang sebelum lampu otomatis mati
+#define AMBANG_CAHAYA_GELAP_LUX         50.0f  // Saat lampu MATI: di bawah 50 Lux dianggap gelap -> nyalakan lampu
+#define HISTERESIS_CAHAYA_EKSTERNAL_LUX 200.0f // Saat lampu NYALA: harus naik +200 Lux di atas cahaya lampu sendiri baru dianggap terang
+#define RELAY_TRIGGER_ACTIVE            HIGH   // Active-HIGH trigger: HIGH = Relay ON (Klik/Lampu Nyala)
+#define RELAY_TRIGGER_INACTIVE          LOW    // LOW = Relay OFF (Lepas/Lampu Padam)
+#define TIMEOUT_KOSONG_LAMPU_MS         10000  // 10 detik tanpa orang sebelum lampu otomatis mati
 
 // --- UUID Standar Nordic Semiconductor UART Service (NUS) ---
 #define BLE_DEVICE_NAME        "SmartRoom-ESP32"

@@ -10,6 +10,8 @@ LightManager::LightManager()
   : _mode(ModeLampu::OTOMATIS),
     _lightState(false),
     _initialized(false),
+    _perluKalibrasiCahayaSendiri(false),
+    _luxPatokanSaatNyala(0.0f),
     _lastPresenceTime(0) {}
 
 void LightManager::terapkanState(bool nyala) {
@@ -18,6 +20,7 @@ void LightManager::terapkanState(bool nyala) {
     return;
   }
 
+  bool baruMenyala = (!_lightState && nyala);
   _lightState = nyala;
   _initialized = true;
 
@@ -25,11 +28,16 @@ void LightManager::terapkanState(bool nyala) {
     // NYALA: Tarik pin ke GND (Active-LOW) untuk menyalakan optocoupler & relay
     pinMode(PIN_RELAY_LIGHT, OUTPUT);
     digitalWrite(PIN_RELAY_LIGHT, LOW);
+    if (baruMenyala) {
+      // Tandai agar siklus berikutnya mencatat seberapa terang cahaya lampu ini sendiri di BH1750
+      _perluKalibrasiCahayaSendiri = true;
+    }
   } else {
     // MATI: Ubah pin ke mode INPUT (High-Impedance / Mengambang).
     // Ini memutus arus total dan mencegah selisih voltase (5V - 3.3V = 1.7V)
     // yang membuat optocoupler menyala terus-menerus.
     pinMode(PIN_RELAY_LIGHT, INPUT);
+    _perluKalibrasiCahayaSendiri = false;
   }
 }
 
@@ -58,22 +66,38 @@ void LightManager::evaluasi(float lux, bool adaOrang) {
         _lastPresenceTime = now;
       }
 
-      // 1. Kondisi Ruangan Terang (>= 50 Lux): Lampu WAJIB MATI (hemat energi)
-      if (lux >= 0.0 && lux >= AMBANG_CAHAYA_GELAP_LUX) {
-        terapkanState(false);
-        break;
+      if (lux < 0.0f) {
+        break; // Sensor cahaya tidak valid, pertahankan state
       }
 
-      // 2. Kondisi Ruangan Gelap (< 50 Lux):
-      if (lux >= 0.0 && lux < AMBANG_CAHAYA_GELAP_LUX) {
-        if (adaOrang) {
-          // Gelap DAN Ada Orang -> Nyalakan Lampu!
+      if (!_lightState) {
+        // --- KONDISI SAAT LAMPU SEDANG MATI ---
+        // Nyalakan lampu hanya jika ruangan gelap (< 50 Lux) DAN ada orang
+        if (lux < AMBANG_CAHAYA_GELAP_LUX && adaOrang) {
           terapkanState(true);
-        } else {
-          // Gelap tapi Ruangan Kosong -> Cek apakah sudah melebihi timeout kekosongan
-          if (now - _lastPresenceTime >= TIMEOUT_KOSONG_LAMPU_MS) {
-            terapkanState(false); // Padamkan lampu karena orang sudah pergi
-          }
+        }
+      } else {
+        // --- KONDISI SAAT LAMPU SEDANG MENYALA ---
+        // 1. Kompensasi Umpan Balik Optik (Optical Feedback Compensation):
+        //    Saat lampu baru menyala, cahaya lampu sendiri pasti menyinari BH1750 (> 50 Lux).
+        //    Rekam nilai lux ini sebagai baseline cahaya lampu sendiri agar lampu tidak mematikan dirinya sendiri!
+        if (_perluKalibrasiCahayaSendiri) {
+          _luxPatokanSaatNyala = lux;
+          _perluKalibrasiCahayaSendiri = false;
+        } else if (lux < _luxPatokanSaatNyala) {
+          // Jika cahaya turun lebih redup, perbarui baseline bawah
+          _luxPatokanSaatNyala = lux;
+        }
+
+        // 2. Matikan lampu jika ada sumber cahaya luar yang jauh lebih terang (+200 Lux di atas cahaya lampu ini)
+        if (lux >= (_luxPatokanSaatNyala + HISTERESIS_CAHAYA_EKSTERNAL_LUX)) {
+          terapkanState(false);
+          break;
+        }
+
+        // 3. Matikan lampu jika ruangan sudah kosong melebihi timeout (10 detik)
+        if (!adaOrang && (now - _lastPresenceTime >= TIMEOUT_KOSONG_LAMPU_MS)) {
+          terapkanState(false);
         }
       }
       break;
