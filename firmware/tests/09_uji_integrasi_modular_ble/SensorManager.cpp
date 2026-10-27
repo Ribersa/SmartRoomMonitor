@@ -126,7 +126,6 @@ void SensorManager::evaluasiFilterKehadiran() {
     return;
   }
 
-  unsigned long now = millis();
   bool rawHadir = _radar.presenceDetected();
   uint8_t eGerak = _radar.movingTargetEnergy();
   uint8_t eDiam  = _radar.stationaryTargetEnergy();
