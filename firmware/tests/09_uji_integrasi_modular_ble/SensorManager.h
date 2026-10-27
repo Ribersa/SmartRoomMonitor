@@ -70,6 +70,7 @@ private:
   StateKehadiranRadar _stateKehadiran;
   unsigned long _waktuMulaiVerifikasi;
   unsigned long _waktuTerakhirSinyalAda;
+  unsigned long _waktuTerakhirRadarKonek;
   bool _jejakNapasTerdeteksi;
 
   bool hubungkanRadarAutoSwap();

@@ -18,7 +18,6 @@ void LightManager::terapkanState(bool nyala) {
     return;
   }
 
-  bool berubah = (_initialized && _lightState != nyala);
   _lightState = nyala;
   _initialized = true;
 
@@ -31,11 +30,6 @@ void LightManager::terapkanState(bool nyala) {
     // Ini memutus arus total dan mencegah selisih voltase (5V - 3.3V = 1.7V)
     // yang membuat optocoupler menyala terus-menerus.
     pinMode(PIN_RELAY_LIGHT, INPUT);
-  }
-
-  // Beri jeda stabilisasi 80 ms setelah kumparan relay berpindah sebelum beban lain aktif
-  if (berubah) {
-    delay(80);
   }
 }
 

@@ -15,10 +15,12 @@ SensorManager::SensorManager()
     _stateKehadiran(STATE_RADAR_KOSONG),
     _waktuMulaiVerifikasi(0),
     _waktuTerakhirSinyalAda(0),
+    _waktuTerakhirRadarKonek(0),
     _jejakNapasTerdeteksi(false) {}
 
 bool SensorManager::hubungkanRadarAutoSwap() {
   Serial.print(F("🔄 [UART] Inisialisasi radar (RX=18, TX=17)... "));
+  Serial1.setRxBufferSize(1024); // Perbesar buffer UART (256000 baud) agar tidak overflow saat baca I2C/BLE
   Serial1.begin(RADAR_BAUD, SERIAL_8N1, PIN_RADAR_RX, PIN_RADAR_TX);
   _radar.begin(Serial1, false);
 
@@ -28,6 +30,7 @@ bool SensorManager::hubungkanRadarAutoSwap() {
     if (_radar.isConnected()) {
       _activeRxPin = PIN_RADAR_RX;
       _activeTxPin = PIN_RADAR_TX;
+      _waktuTerakhirRadarKonek = millis();
       Serial.println(F("TERHUBUNG!"));
       return true;
     }
@@ -38,6 +41,7 @@ bool SensorManager::hubungkanRadarAutoSwap() {
   Serial.print(F("🔄 [AUTO-SWAP] Membalik pin UART (RX=17, TX=18)... "));
   Serial1.end();
   delay(100);
+  Serial1.setRxBufferSize(1024);
   Serial1.begin(RADAR_BAUD, SERIAL_8N1, PIN_RADAR_TX, PIN_RADAR_RX);
   _radar.begin(Serial1, false);
 
@@ -47,6 +51,7 @@ bool SensorManager::hubungkanRadarAutoSwap() {
     if (_radar.isConnected()) {
       _activeRxPin = PIN_RADAR_TX;
       _activeTxPin = PIN_RADAR_RX;
+      _waktuTerakhirRadarKonek = millis();
       Serial.println(F("TERHUBUNG! (Auto-swap OK)"));
       return true;
     }
@@ -56,6 +61,7 @@ bool SensorManager::hubungkanRadarAutoSwap() {
 
   // Kembalikan ke default
   Serial1.end();
+  Serial1.setRxBufferSize(1024);
   Serial1.begin(RADAR_BAUD, SERIAL_8N1, PIN_RADAR_RX, PIN_RADAR_TX);
   _radar.begin(Serial1, false);
   return false;
@@ -94,8 +100,9 @@ void SensorManager::begin() {
   if (_radarOk) {
     setRadarGate(RADAR_DEFAULT_GATE_MAX, RADAR_DEFAULT_TIMEOUT_DETIK, "Meja Dekat (~1.50m / Gate 2)");
     boostSensitivitasNapas();
-    setBluetoothRadar(false); // Default OFF: Matikan radio Bluetooth 2.4GHz LD2410 agar chip dingin
-    Serial.println(F("📶 [OK] Radar LD2410 Siap (Bluetooth Onboard: DEFAULT OFF - Radio 2.4GHz Mati)."));
+    // Catatan: Status Bluetooth OFF sudah tersimpan permanen di Flash NVM radar.
+    // Tidak dipanggil ulang saat boot agar radar tidak mengalami reboot paksa yang memicu DISCONNECT.
+    Serial.println(F("📶 [OK] Radar LD2410 Siap & Terkalibrasi!"));
   } else {
     Serial.println(F("⚠️ [PERINGATAN] Radar belum respons. Cek kabel 5V & Common GND!"));
   }
@@ -103,11 +110,17 @@ void SensorManager::begin() {
 
 void SensorManager::updateRadar() {
   _radar.read();
+  if (_radar.isConnected()) {
+    _waktuTerakhirRadarKonek = millis();
+    _radarOk = true;
+  }
   evaluasiFilterKehadiran();
 }
 
 void SensorManager::evaluasiFilterKehadiran() {
-  if (!_radar.isConnected()) {
+  unsigned long now = millis();
+  bool koneksiAktif = _radar.isConnected() || (_radarOk && (now - _waktuTerakhirRadarKonek < 3000));
+  if (!koneksiAktif) {
     _stateKehadiran = STATE_RADAR_KOSONG;
     _jejakNapasTerdeteksi = false;
     return;
@@ -205,7 +218,9 @@ TelemetriData SensorManager::bacaSemua() {
   d.sht30Ok = _sht30Ok;
   if (_sht30Ok) {
     d.suhu = _sht30.readTemperature();
+    _radar.read(); // Kuras buffer UART radar di sela jeda I2C SHT30
     d.kelembapan = _sht30.readHumidity();
+    _radar.read();
 
     // Kompensasi dinamis ke ENS160
     if (!isnan(d.suhu) && !isnan(d.kelembapan) && _ens160Ok) {
@@ -231,6 +246,7 @@ TelemetriData SensorManager::bacaSemua() {
   } else {
     d.labelAQI = "Sensor Gagal";
   }
+  _radar.read();
 
   // 3. Baca BH1750
   d.bh1750Ok = _bh1750Ok;
@@ -244,8 +260,9 @@ TelemetriData SensorManager::bacaSemua() {
     d.labelCahaya = "Gagal Baca";
   }
 
-  // 4. Baca Radar HLK-LD2410
-  d.radarOk = _radar.isConnected();
+  // 4. Baca Radar HLK-LD2410 (Pastikan buffer terbaru sudah diparse)
+  updateRadar();
+  d.radarOk = _radar.isConnected() || (_radarOk && (millis() - _waktuTerakhirRadarKonek < 3000));
   strcpy(d.barGerak, "[..........]");
   strcpy(d.barDiam,  "[..........]");
 
