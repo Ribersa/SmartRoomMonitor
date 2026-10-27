@@ -286,8 +286,11 @@ bool SensorManager::setRadarGate(uint8_t gateMaks, uint16_t timeoutDetik, const 
 }
 
 void SensorManager::boostSensitivitasNapas() {
-  _radar.setGateSensitivityThreshold(0, 30, 20);
-  _radar.setGateSensitivityThreshold(1, 30, 20);
+  // Gate 0 (0 - 75 cm): Pasang ambang tinggi (65% / 50%) untuk memblokir kebocoran radiasi belakang PCB (Back-Lobe)
+  _radar.setGateSensitivityThreshold(0, 65, 50);
+  // Gate 1 (75 - 150 cm): Ambang menengah (45% / 30%)
+  _radar.setGateSensitivityThreshold(1, 45, 30);
+  // Gate 2 & 3 (1.5m - 2.5m di Depan Sensor): Sangat peka napas mikro (15%)
   _radar.setGateSensitivityThreshold(2, 30, RADAR_BREATHING_THRESHOLD);
   _radar.setGateSensitivityThreshold(3, 35, RADAR_BREATHING_THRESHOLD);
   _radar.setGateSensitivityThreshold(4, 40, 20);
