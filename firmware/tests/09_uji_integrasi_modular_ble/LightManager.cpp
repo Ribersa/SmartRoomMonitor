@@ -9,10 +9,19 @@
 LightManager::LightManager()
   : _mode(ModeLampu::OTOMATIS),
     _lightState(false),
+    _initialized(false),
     _lastPresenceTime(0) {}
 
 void LightManager::terapkanState(bool nyala) {
+  // Cegah re-konfigurasi pinMode berulang setiap siklus loop jika state sama
+  if (_initialized && _lightState == nyala) {
+    return;
+  }
+
+  bool berubah = (_initialized && _lightState != nyala);
   _lightState = nyala;
+  _initialized = true;
+
   if (_lightState) {
     // NYALA: Tarik pin ke GND (Active-LOW) untuk menyalakan optocoupler & relay
     pinMode(PIN_RELAY_LIGHT, OUTPUT);
@@ -22,6 +31,11 @@ void LightManager::terapkanState(bool nyala) {
     // Ini memutus arus total dan mencegah selisih voltase (5V - 3.3V = 1.7V)
     // yang membuat optocoupler menyala terus-menerus.
     pinMode(PIN_RELAY_LIGHT, INPUT);
+  }
+
+  // Beri jeda stabilisasi 80 ms setelah kumparan relay berpindah sebelum beban lain aktif
+  if (berubah) {
+    delay(80);
   }
 }
 

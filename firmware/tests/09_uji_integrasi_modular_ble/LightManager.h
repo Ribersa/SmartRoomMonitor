@@ -17,6 +17,7 @@ class LightManager {
 private:
   ModeLampu _mode;
   bool _lightState; // true = nyala (relay aktif), false = mati
+  bool _initialized;
   unsigned long _lastPresenceTime;
 
   void terapkanState(bool nyala);

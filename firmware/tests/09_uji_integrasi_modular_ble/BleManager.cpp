@@ -157,21 +157,23 @@ void BleManager::eksekusiPerintah(char cmd) {
     case 'k':
     case 'K':
       if (_fan) {
+        if (_buzzer) _buzzer->nadaKonfirmasi();
+        delay(40); // Pisahkan puncak arus buzzer dari arus kejut (inrush) motor kipas
         _fan->cycleMode();
         snprintf(buf, sizeof(buf), "\r\n🌀 [KIPAS FR-02] Mode diubah ke: %s (Status: %s)\r\n\n",
                  _fan->getModeLabel(), _fan->getStatusLabel());
         kirimPesan(buf);
-        if (_buzzer) _buzzer->nadaKonfirmasi();
       }
       break;
     case 'l':
     case 'L':
       if (_light) {
+        if (_buzzer) _buzzer->nadaKonfirmasi();
+        delay(40); // Pisahkan puncak arus buzzer dari arus kejut (inrush) kumparan relay & lampu
         _light->cycleMode();
         snprintf(buf, sizeof(buf), "\r\n💡 [LAMPU FR-08] Mode diubah ke: %s (Status: %s)\r\n\n",
                  _light->getModeLabel(), _light->getStatusLabel());
         kirimPesan(buf);
-        if (_buzzer) _buzzer->nadaKonfirmasi();
       }
       break;
     case 't':

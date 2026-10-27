@@ -17,6 +17,7 @@ class FanManager {
 private:
   ModeKipas _mode;
   bool _fanState; // true = nyala, false = mati
+  bool _initialized;
 
   void terapkanState(bool nyala);
 

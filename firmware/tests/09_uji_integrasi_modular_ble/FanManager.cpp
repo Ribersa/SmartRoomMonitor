@@ -4,10 +4,28 @@
 // FanManager.cpp - Implementasi Logika Kipas & Histeresis Termal FR-02
 // ==============================================================================
 
-FanManager::FanManager() : _mode(ModeKipas::OTOMATIS), _fanState(false) {}
+FanManager::FanManager() : _mode(ModeKipas::OTOMATIS), _fanState(false), _initialized(false) {}
 
 void FanManager::terapkanState(bool nyala) {
+  // Cegah re-trigger berulang jika state tidak berubah
+  if (_initialized && _fanState == nyala) {
+    return;
+  }
+
+  bool transisiNyala = (!_fanState && nyala && _initialized);
   _fanState = nyala;
+  _initialized = true;
+
+  if (transisiNyala) {
+    // Soft-Start Ramp (160 ms) untuk meredam lonjakan arus kejut (inrush current)
+    // motor kipas DC yang kerap memicu brownout reset pada rel 5V ESP32
+    for (int duty = 64; duty <= 255; duty += 32) {
+      analogWrite(PIN_FAN_MOSFET, duty);
+      delay(25);
+    }
+  }
+
+  analogWrite(PIN_FAN_MOSFET, _fanState ? 255 : 0);
   digitalWrite(PIN_FAN_MOSFET, _fanState ? HIGH : LOW);
 }
 
