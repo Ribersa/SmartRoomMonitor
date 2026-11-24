@@ -1,0 +1,136 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 1,
+    "identityHash": "f171b1193ffd6c7ee16534f8f04afe6e",
+    "entities": [
+      {
+        "tableName": "current_snapshot",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `temperature` REAL NOT NULL, `humidity` REAL NOT NULL, `humidityLabel` TEXT NOT NULL, `airDelta` INTEGER NOT NULL, `airLabel` TEXT NOT NULL, `airAqi` INTEGER NOT NULL, `airTvoc` INTEGER NOT NULL, `airEco2` INTEGER NOT NULL, `airWarmingUp` INTEGER NOT NULL, `lightLux` REAL NOT NULL, `lightLabel` TEXT NOT NULL, `presence` TEXT NOT NULL, `presenceDetected` INTEGER NOT NULL, `fanStatus` INTEGER NOT NULL, `lampStatus` INTEGER NOT NULL, `nightModeActive` INTEGER NOT NULL, `timestampMs` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "temperature",
+            "columnName": "temperature",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "humidity",
+            "columnName": "humidity",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "humidityLabel",
+            "columnName": "humidityLabel",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "airDelta",
+            "columnName": "airDelta",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "airLabel",
+            "columnName": "airLabel",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "airAqi",
+            "columnName": "airAqi",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "airTvoc",
+            "columnName": "airTvoc",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "airEco2",
+            "columnName": "airEco2",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "airWarmingUp",
+            "columnName": "airWarmingUp",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lightLux",
+            "columnName": "lightLux",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lightLabel",
+            "columnName": "lightLabel",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "presence",
+            "columnName": "presence",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "presenceDetected",
+            "columnName": "presenceDetected",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "fanStatus",
+            "columnName": "fanStatus",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lampStatus",
+            "columnName": "lampStatus",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "nightModeActive",
+            "columnName": "nightModeActive",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "timestampMs",
+            "columnName": "timestampMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [],
+        "foreignKeys": []
+      }
+    ],
+    "views": [],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'f171b1193ffd6c7ee16534f8f04afe6e')"
+    ]
+  }
+}
