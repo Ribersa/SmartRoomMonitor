@@ -34,6 +34,7 @@
 #define WARMUP_ENS160_MS                180000UL  // Masa pemanasan 3 menit bebas alarm palsu (FR-03, NFR-06)
 #define WARMUP_BASELINE_START_MS        120000UL  // Mulai sampling baseline TVOC di menit ke-2 s.d. ke-3
 #define DEBOUNCE_EVENT_MS               60000UL   // Debounce pencatatan event bahaya 60 detik (FR-01)
+#define ALARM_REARM_MS                  60000UL   // Mute berakhir otomatis bila bahaya belum mereda (UML UC-10)
 #define WIFI_RECONNECT_INTERVAL_MS      5000UL    // Coba sambung ulang Wi-Fi non-blocking (NFR-02)
 #define FIREBASE_TOKEN_REFRESH_MS       3000000UL // Refresh idToken Auth tiap 50 menit (exp 60 menit)
 

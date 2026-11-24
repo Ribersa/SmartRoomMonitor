@@ -4,7 +4,7 @@
 // BuzzerManager.cpp - Implementasi Driver Buzzer Active-LOW & Prioritas Alarm
 // ==============================================================================
 
-BuzzerManager::BuzzerManager() : _muted(false) {}
+BuzzerManager::BuzzerManager() : _muted(false), _mutedAtMs(0) {}
 
 void BuzzerManager::begin() {
   pinMode(PIN_BUZZER, OUTPUT);
@@ -79,6 +79,9 @@ void BuzzerManager::alarmJamMalam() {
 }
 
 void BuzzerManager::setMuted(bool mute) {
+  if (mute && !_muted) {
+    _mutedAtMs = millis();
+  }
   _muted = mute;
   if (_muted) {
     matikan();
@@ -87,6 +90,11 @@ void BuzzerManager::setMuted(bool mute) {
 
 bool BuzzerManager::isMuted() const {
   return _muted;
+}
+
+bool BuzzerManager::isRearmDue() const {
+  // UML UC-10: mute berlaku maksimal 60 detik, setelah itu alarm aktif lagi
+  return _muted && (millis() - _mutedAtMs >= ALARM_REARM_MS);
 }
 
 AlarmStatus BuzzerManager::evaluasiAlarm(float suhu, float tempAlert, bool airBad, uint8_t aqi, bool warmingUp, bool adaOrang, bool jamMalam) {

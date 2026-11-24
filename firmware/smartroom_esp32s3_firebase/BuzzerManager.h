@@ -18,6 +18,7 @@ struct AlarmStatus {
 class BuzzerManager {
 private:
   bool _muted;
+  unsigned long _mutedAtMs;   // Waktu mute diterapkan, untuk re-arm ALARM_REARM_MS
 
 public:
   BuzzerManager();
@@ -34,6 +35,7 @@ public:
 
   void setMuted(bool mute);
   bool isMuted() const;
+  bool isRearmDue() const;    // true bila mute sudah lewat ALARM_REARM_MS
 
   AlarmStatus evaluasiAlarm(float suhu, float tempAlert, bool airBad, uint8_t aqi, bool warmingUp, bool adaOrang, bool jamMalam);
 };

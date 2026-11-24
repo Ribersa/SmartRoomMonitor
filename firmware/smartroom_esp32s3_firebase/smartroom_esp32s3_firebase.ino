@@ -134,6 +134,14 @@ void loop() {
 
     // Evaluasi Jam Malam NTP WIB (FR-05) & Alarm Buzzer Lokal (FR-01, FR-03, FR-05, FR-06)
     bool jamMalam = timeMgr.isJamMalam(th.nightStartHour, th.nightEndHour);
+
+    // UML UC-10: mute berakhir setelah 60 detik bila kondisi bahaya belum mereda
+    if (buzzer.isRearmDue()) {
+      buzzer.setMuted(false);
+      sharedState.requestLocalMuteUpdate(false);
+      Serial.println(F("[ALARM] Masa mute 60 detik habis, alarm aktif kembali."));
+    }
+
     AlarmStatus alarm = buzzer.evaluasiAlarm(
       data.suhu, th.tempAlert, data.airBad, data.aqi, data.warmingUp, data.adaOrang, jamMalam
     );
