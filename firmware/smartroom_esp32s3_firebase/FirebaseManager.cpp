@@ -7,7 +7,7 @@
 #endif
 
 // ==============================================================================
-// FirebaseManager.cpp - Implementasi Task Cloud Core 0 (Non-Blocking & Offline-Safe)
+// FirebaseManager.cpp - Implementasi Task Cloud Core 0 (Sinkron UML & SRS v0.9)
 // ==============================================================================
 
 FirebaseManager::FirebaseManager()
@@ -16,7 +16,7 @@ FirebaseManager::FirebaseManager()
     _taskHandle(nullptr),
     _tokenObtainedMs(0),
     _lastWifiAttemptMs(0),
-    _lastTelemetryPushMs(0),
+    _lastCurrentPushMs(0),
     _lastControlPollMs(0),
     _lastThresholdPollMs(0),
     _lastHistoryLogMs(0),
@@ -27,8 +27,6 @@ void FirebaseManager::begin(SharedState* shared, TimeManager* timeMgr) {
   _shared = shared;
   _timeMgr = timeMgr;
 
-  // Catatan: setInsecure() digunakan agar koneksi TLS tetap terenkripsi tanpa
-  // kendala rotasi Root CA saat demo hotspot; dapat diganti setCACert() untuk pinning.
   _secureClient.setInsecure();
 
   WiFi.mode(WIFI_STA);
@@ -36,7 +34,6 @@ void FirebaseManager::begin(SharedState* shared, TimeManager* timeMgr) {
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   _lastWifiAttemptMs = millis();
 
-  // Jalankan seluruh aktivitas jaringan pada Core 0 agar Core 1 (Radar 256kbps + Aktuator) tidak terganggu
   xTaskCreatePinnedToCore(
     FirebaseManager::taskEntry,
     "FirebaseCore0Task",
@@ -165,90 +162,110 @@ void FirebaseManager::publishNetworkStatus(int lastHttpCode, bool pushedOk) {
   _shared->setNetworkStatus(st);
 }
 
-void FirebaseManager::pushTelemetry() {
-  TelemetrySnapshot snap;
-  if (!_shared->getTelemetry(snap)) {
+void FirebaseManager::pushCurrent() {
+  CurrentSnapshot snap;
+  if (!_shared->getCurrent(snap)) {
     return;
   }
 
-  JsonDocument doc;
-  doc["temperature"]            = isnan(snap.temperature) ? 0.0f : roundf(snap.temperature * 100.0f) / 100.0f;
-  doc["humidity"]               = isnan(snap.humidity) ? 0.0f : roundf(snap.humidity * 100.0f) / 100.0f;
-  doc["humidity_label"]         = snap.humidityLabel;
-  doc["air_quality_label"]      = snap.airQualityLabel;
-  doc["air_quality_aqi"]        = snap.airQualityAqi;
-  doc["air_quality_tvoc"]       = snap.airQualityTvoc;
-  doc["air_quality_eco2"]       = snap.airQualityEco2;
-  doc["air_quality_warming_up"] = snap.airQualityWarmingUp;
-  doc["light_lux"]              = (snap.lightLux < 0.0f) ? 0.0f : roundf(snap.lightLux * 10.0f) / 10.0f;
-  doc["light_label"]            = snap.lightLabel;
-  doc["presence_state"]         = snap.presenceState;
-  doc["presence_detected"]      = snap.presenceDetected;
-  doc["alarm_active"]           = snap.alarmActive;
-  doc["alarm_reason"]           = snap.alarmReason;
-  doc["night_mode_active"]      = snap.nightModeActive;
-  uint64_t ts = snap.deviceTimestamp;
-  if (ts == 0 && _timeMgr && _timeMgr->isSynced()) {
-    ts = _timeMgr->getEpochSeconds();
+  uint64_t tsMs = snap.timestampMs;
+  if (tsMs == 0 && _timeMgr && _timeMgr->isSynced()) {
+    tsMs = _timeMgr->getEpochSeconds() * 1000ULL;
   }
-  doc["device_timestamp"]       = ts;
+
+  JsonDocument doc;
+  doc["temperature"]      = isnan(snap.temperature) ? 0.0f : roundf(snap.temperature * 100.0f) / 100.0f;
+  doc["humidity"]         = isnan(snap.humidity) ? 0.0f : roundf(snap.humidity * 100.0f) / 100.0f;
+  doc["humidityLabel"]    = snap.humidityLabel;
+  doc["airDelta"]         = snap.airDelta;
+  doc["airLabel"]         = snap.airLabel;
+  doc["airAqi"]           = snap.airAqi;
+  doc["airTvoc"]          = snap.airTvoc;
+  doc["airEco2"]          = snap.airEco2;
+  doc["airWarmingUp"]     = snap.airWarmingUp;
+  doc["lightLux"]         = (snap.lightLux < 0.0f) ? 0.0f : roundf(snap.lightLux * 10.0f) / 10.0f;
+  doc["lightLabel"]       = snap.lightLabel;
+  doc["presence"]         = snap.presence;
+  doc["presenceDetected"] = snap.presenceDetected;
+  doc["fanStatus"]        = snap.fanStatus;
+  doc["lampStatus"]       = snap.lampStatus;
+  doc["nightModeActive"]  = snap.nightModeActive;
+  doc["timestamp"]        = tsMs;
 
   String body;
   serializeJson(doc, body);
 
   String resp;
-  int code = httpRequest("PUT", buildRtdbUrl("/telemetry"), body, resp);
+  int code = httpRequest("PUT", buildRtdbUrl("/current"), body, resp);
   if (code == 401) {
-    _idToken = ""; // Paksa refresh token pada siklus berikutnya
+    _idToken = "";
   }
   publishNetworkStatus(code, code == 200);
 }
 
-void FirebaseManager::syncActuatorStatusIfDirty() {
-  bool fanSt = false, lampSt = false, muteDirty = false, muteVal = false;
-  if (!_shared->consumeActuatorStatusDirty(fanSt, lampSt, muteDirty, muteVal)) {
+void FirebaseManager::syncAlarmIfDirty() {
+  AlarmStateSnapshot alarmSt;
+  bool muteDirty = false;
+  bool muteVal = false;
+  if (!_shared->consumeAlarmDirty(alarmSt, muteDirty, muteVal)) {
     return;
   }
 
   JsonDocument doc;
-  doc["fan_status"] = fanSt;
-  doc["lamp_status"] = lampSt;
+  doc["active"] = alarmSt.active;
+  doc["buzzer"] = alarmSt.buzzer;
+  doc["status"] = alarmSt.status;
+  doc["reason"] = alarmSt.reason;
   if (muteDirty) {
-    doc["alarm_muted"] = muteVal;
+    doc["mute"] = muteVal;
   }
 
   String body;
   serializeJson(doc, body);
 
   String resp;
-  int code = httpRequest("PATCH", buildRtdbUrl("/controls"), body, resp);
+  int code = httpRequest("PATCH", buildRtdbUrl("/alarm"), body, resp);
   if (code == 401) {
     _idToken = "";
   }
   publishNetworkStatus(code, false);
 }
 
-void FirebaseManager::pollControls() {
-  String resp;
-  int code = httpRequest("GET", buildRtdbUrl("/controls"), "", resp);
-  if (code == 401) {
+void FirebaseManager::pollActuatorAndMute() {
+  // 1. Baca /room1/actuator (fanMode, lampMode dari Staff)
+  String respAct;
+  int codeAct = httpRequest("GET", buildRtdbUrl("/actuator"), "", respAct);
+  if (codeAct == 401) {
     _idToken = "";
-    publishNetworkStatus(code, false);
+    publishNetworkStatus(codeAct, false);
     return;
   }
-  if (code != 200 || resp == "null" || resp.length() < 2) {
-    publishNetworkStatus(code, false);
-    return;
+  if (codeAct == 200 && respAct != "null" && respAct.length() >= 2) {
+    JsonDocument doc;
+    if (deserializeJson(doc, respAct) == DeserializationError::Ok) {
+      const char* fanMode  = doc["fanMode"]  | "auto";
+      const char* lampMode = doc["lampMode"] | "auto";
+      _shared->setRemoteActuatorModes(fanMode, lampMode);
+    }
   }
 
-  JsonDocument doc;
-  if (deserializeJson(doc, resp) == DeserializationError::Ok) {
-    const char* fanMode  = doc["fan_mode"]  | "auto";
-    const char* lampMode = doc["lamp_mode"] | "auto";
-    bool alarmMuted      = doc["alarm_muted"] | false;
-    _shared->setRemoteControls(fanMode, lampMode, alarmMuted);
+  // 2. Baca /room1/alarm/mute (perintah MUTE dari Staff — UML UC-10)
+  String respMute;
+  int codeMute = httpRequest("GET", buildRtdbUrl("/alarm/mute"), "", respMute);
+  if (codeMute == 401) {
+    _idToken = "";
+    publishNetworkStatus(codeMute, false);
+    return;
   }
-  publishNetworkStatus(code, false);
+  if (codeMute == 200) {
+    respMute.trim();
+    if (respMute == "true") {
+      _shared->setRemoteAlarmMute(true);
+    } else if (respMute == "false") {
+      _shared->setRemoteAlarmMute(false);
+    }
+  }
+  publishNetworkStatus(codeMute, false);
 }
 
 void FirebaseManager::pollThresholds() {
@@ -267,14 +284,16 @@ void FirebaseManager::pollThresholds() {
   JsonDocument doc;
   if (deserializeJson(doc, resp) == DeserializationError::Ok) {
     ThresholdSnapshot th = _shared->getThresholds();
-    th.tempFanOn                  = doc["temp_fan_on"]                   | th.tempFanOn;
-    th.tempFanHysteresis          = doc["temp_fan_hysteresis"]           | th.tempFanHysteresis;
-    th.tempAlert                  = doc["temp_alert"]                    | th.tempAlert;
-    th.lightDarkLux               = doc["light_dark_lux"]                | th.lightDarkLux;
-    th.lightExternalHysteresisLux = doc["light_external_hysteresis_lux"] | th.lightExternalHysteresisLux;
-    th.lampEmptyTimeoutSec        = doc["lamp_empty_timeout_sec"]        | th.lampEmptyTimeoutSec;
-    th.nightStartHour             = doc["night_start_hour"]              | th.nightStartHour;
-    th.nightEndHour               = doc["night_end_hour"]                | th.nightEndHour;
+    th.tempFanOn                  = doc["tempFanOn"]                  | th.tempFanOn;
+    th.tempFanHysteresis          = doc["tempFanHysteresis"]          | th.tempFanHysteresis;
+    th.tempAlert                  = doc["tempAlert"]                  | th.tempAlert;
+    th.airDeltaModerate           = doc["airDeltaModerate"]           | th.airDeltaModerate;
+    th.airDeltaBad                = doc["airDeltaBad"]                | th.airDeltaBad;
+    th.lightDarkLux               = doc["lightDarkLux"]               | th.lightDarkLux;
+    th.lightExternalHysteresisLux = doc["lightExternalHysteresisLux"] | th.lightExternalHysteresisLux;
+    th.lampEmptyTimeoutSec        = doc["lampEmptyTimeoutSec"]        | th.lampEmptyTimeoutSec;
+    th.nightStartHour             = doc["nightStartHour"]             | th.nightStartHour;
+    th.nightEndHour               = doc["nightEndHour"]               | th.nightEndHour;
     _shared->setThresholds(th);
     _initialThresholdLoaded = true;
   }
@@ -283,6 +302,7 @@ void FirebaseManager::pollThresholds() {
 
 void FirebaseManager::pushHistoryIfDue() {
   unsigned long now = millis();
+  // Interval 10 menit = 144 titik / 24 jam (selaras UML UC-07 limitToLast(144))
   if (_lastHistoryLogMs != 0 && (now - _lastHistoryLogMs < INTERVAL_HISTORY_LOG_MS)) {
     return;
   }
@@ -291,27 +311,29 @@ void FirebaseManager::pushHistoryIfDue() {
     return;
   }
 
-  TelemetrySnapshot snap;
-  if (!_shared->getTelemetry(snap)) {
+  CurrentSnapshot snap;
+  if (!_shared->getCurrent(snap)) {
     return;
   }
 
-  uint64_t epoch = _timeMgr->getEpochSeconds();
-  if (epoch == 0) {
+  uint64_t epochSec = _timeMgr->getEpochSeconds();
+  if (epochSec == 0) {
     return;
   }
 
   JsonDocument doc;
-  doc["t"]   = isnan(snap.temperature) ? 0.0f : roundf(snap.temperature * 10.0f) / 10.0f;
-  doc["h"]   = isnan(snap.humidity) ? 0.0f : roundf(snap.humidity * 10.0f) / 10.0f;
-  doc["aqi"] = snap.airQualityAqi;
-  doc["lux"] = (snap.lightLux < 0.0f) ? 0 : (int)roundf(snap.lightLux);
+  doc["temperature"] = isnan(snap.temperature) ? 0.0f : roundf(snap.temperature * 10.0f) / 10.0f;
+  doc["humidity"]    = isnan(snap.humidity) ? 0.0f : roundf(snap.humidity * 10.0f) / 10.0f;
+  doc["airDelta"]    = snap.airDelta;
+  doc["airAqi"]      = snap.airAqi;
+  doc["lightLux"]    = (snap.lightLux < 0.0f) ? 0.0f : roundf(snap.lightLux * 10.0f) / 10.0f;
+  doc["timestamp"]   = epochSec * 1000ULL;
 
   String body;
   serializeJson(doc, body);
 
   char subPathBuf[40];
-  snprintf(subPathBuf, sizeof(subPathBuf), "/history/%llu", (unsigned long long)epoch);
+  snprintf(subPathBuf, sizeof(subPathBuf), "/history/%llu", (unsigned long long)epochSec);
   String resp;
   int code = httpRequest("PUT", buildRtdbUrl(subPathBuf), body, resp);
   if (code == 200) {
@@ -323,7 +345,6 @@ void FirebaseManager::pushHistoryIfDue() {
 
 void FirebaseManager::pruneOldHistoryIfDue() {
   unsigned long now = millis();
-  // Bersihkan riwayat > 24 jam setiap 30 menit sekali
   if (_lastHistoryPruneMs != 0 && (now - _lastHistoryPruneMs < 1800000UL)) {
     return;
   }
@@ -349,7 +370,7 @@ void FirebaseManager::pruneOldHistoryIfDue() {
         String delResp;
         httpRequest("DELETE", buildRtdbUrl(delPath.c_str()), "", delResp);
         deleted++;
-        if (deleted >= 5) break; // Batasi per siklus agar tidak menahan sinkronisasi
+        if (deleted >= 5) break;
       }
     }
     _lastHistoryPruneMs = now;
@@ -361,8 +382,13 @@ void FirebaseManager::flushEventQueue() {
   uint8_t sentCount = 0;
 
   while (_shared->peekEvent(ev) && sentCount < 3) {
+    uint64_t tsMs = ev.timestampMs;
+    if (tsMs == 0 && _timeMgr && _timeMgr->isSynced()) {
+      tsMs = _timeMgr->getEpochSeconds() * 1000ULL;
+    }
+
     JsonDocument doc;
-    doc["timestamp"] = (ev.timestamp > 0) ? ev.timestamp : (_timeMgr ? _timeMgr->getEpochSeconds() : 0ULL);
+    doc["timestamp"] = tsMs;
     doc["type"]      = ev.type;
     doc["severity"]  = ev.severity;
     doc["message"]   = ev.message;
@@ -399,14 +425,14 @@ void FirebaseManager::runLoop() {
 
         if (now - _lastControlPollMs >= INTERVAL_CONTROL_POLL_MS) {
           _lastControlPollMs = now;
-          pollControls();
+          pollActuatorAndMute();
         }
 
-        syncActuatorStatusIfDirty();
+        syncAlarmIfDirty();
 
-        if (now - _lastTelemetryPushMs >= INTERVAL_TELEMETRI_PUSH_MS) {
-          _lastTelemetryPushMs = now;
-          pushTelemetry();
+        if (now - _lastCurrentPushMs >= INTERVAL_TELEMETRI_PUSH_MS) {
+          _lastCurrentPushMs = now;
+          pushCurrent();
         }
 
         flushEventQueue();

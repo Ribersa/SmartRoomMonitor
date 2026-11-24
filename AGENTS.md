@@ -6,12 +6,12 @@ Dokumen ini adalah panduan wajib bagi setiap AI coding agent (Antigravity, Codex
 
 ## 1. Sumber Kebenaran Tunggal (Single Source of Truth)
 
-1. **Baseline Spesifikasi Resmi:** **`docs/SRS-SmartRoomMonitor-v0.9.md`** (8 FR, 8 NFR, 2 Shared FR).
-   - **DILARANG** merujuk, mengembalikan, atau menyalin penomoran/pembagian tugas dari SRS v0.8 atau dokumen arsip lama.
+1. **Baseline Spesifikasi Resmi:** **`docs/SRS-SmartRoomMonitor-v0.9.md`** (8 FR, 8 NFR, 2 Shared FR) yang diselaraskan dengan **Dokumen Pemodelan UML SmartRoomMonitor**.
+   - **DILARANG** merujuk atau menyalin penomoran/pembagian tugas dari SRS v0.8.
 2. **Kontrak Data Backend Firebase (NFR-05):**
    - Skema JSON: **`firebase/schema-v0.9.json`**
    - Security Rules: **`firebase/database.rules.json`**
-   - **DILARANG** mengubah nama key JSON, struktur path `/room1/*` atau `/users/{uid}`, maupun nilai string enum (`"auto"`, `"on"`, `"off"`, `"visitor"`, `"staff"`, `"device"`, `"tidak ada"`, `"bergerak"`, `"diam"`, `"Memanaskan"`, `"Baik"`, `"Sedang"`, `"Buruk"`) tanpa menyelaraskan **kedua sisi** (Firmware ESP32-S3 dan Aplikasi Android) sekaligus memperbarui `firebase/schema-v0.9.json` & `firebase/database.rules.json`.
+   - **DILARANG** mengubah nama key JSON, struktur path `/room1/*` atau `/users/{uid}`, maupun nilai string enum (`"Staff"`, `"Pengunjung"`, `"Device"`, `"auto"`, `"on"`, `"off"`, `"normal"`, `"aktif"`, `"dibungkam"`, `"tidak ada"`, `"bergerak"`, `"diam"`, `"Memanaskan"`, `"Baik"`, `"Sedang"`, `"Buruk"`, `"Gelap"`, `"Terang"`) tanpa menyelaraskan **kedua sisi** (Firmware ESP32-S3 dan Aplikasi Android) sekaligus memperbarui `firebase/schema-v0.9.json` & `firebase/database.rules.json`.
 
 ---
 
@@ -30,17 +30,21 @@ Multi-room (selalu gunakan `room1`), web dashboard, OTA update, export PDF, kame
 
 ---
 
-## 3. Aturan Keamanan & Kredensial (WAJIB — NFR-03 & NFR-04)
+## 3. Aturan Keamanan, Kredensial & Tanggung Jawab Penulisan (WAJIB — NFR-03, NFR-04, FR-06)
 
 1. **Jangan pernah commit kredensial nyata:** Dilarang keras memasukkan `secrets.h`, `secrets.yaml`, `google-services.json`, `.env`, SSID/password Wi-Fi pribadi, Firebase Web API Key, password akun, atau URL RTDB proyek aktif ke dalam kode, log, dokumentasi, maupun riwayat commit Git.
-2. Selalu gunakan file template berakhiran `.example` (seperti `firmware/smartroom_esp32s3_firebase/secrets.h.example`) dengan nilai placeholder.
-3. Sebelum melakukan `git add` atau `git commit`, verifikasi bahwa tidak ada file sensitif yang ikut ter-stage (`git status`, `git diff --cached`).
-4. **Kepatuhan RBAC (`firebase/database.rules.json`):**
+2. Selalu gunakan file template berakhiran `.example` (`secrets.h.example`) dengan nilai placeholder dan verifikasi `.gitignore` sebelum commit.
+3. **Kepatuhan RBAC (`firebase/database.rules.json`):**
    - Tanpa login: akses ditolak total.
-   - `visitor` (Pengunjung): hanya baca `/room1` dan `/users/{uid}` miliknya. UI Android **wajib menyembunyikan atau menonaktifkan** kontrol kipas, lampu, dan tombol MUTE bagi peran `visitor`.
-   - `staff`: boleh baca `/room1` dan hanya menulis `/room1/controls/fan_mode`, `/room1/controls/lamp_mode`, `/room1/controls/alarm_muted`.
+   - `Pengunjung`: hanya baca `/room1` dan `/users/{uid}` miliknya. UI Android **wajib menyembunyikan atau menonaktifkan** kontrol kipas, lampu, dan tombol MUTE bagi peran `Pengunjung`.
+   - `Staff`: boleh baca `/room1`, dan menulis perintah **hanya** ke:
+     - `room1/actuator/fanMode` (`"auto"` / `"on"` / `"off"`)
+     - `room1/actuator/lampMode` (`"auto"` / `"on"` / `"off"`)
+     - `room1/alarm/mute` (`true` / `false`)
    - `thresholds`: hanya diubah oleh admin melalui **Firebase Console** (bukan ditulis dari aplikasi Android).
-   - `device` (ESP32-S3): hanya menulis `telemetry`, `history`, `events`, `controls/fan_status`, `controls/lamp_status`, dan reset `controls/alarm_muted`.
+   - `Device` (ESP32-S3): satu-satunya penulis `room1/current`, `room1/alarm/{active, buzzer, status, reason}`, `room1/history`, dan `room1/events`.
+4. **PENTING — Penyelarasan UML Sequence Diagram (UC-03, UC-04, UC-06):**
+   - **Aplikasi Android DILARANG menulis ke `room1/events` maupun `room1/alarm/buzzer`.** Evaluasi bahaya (suhu > 35°C, udara buruk, jam malam), aktivasi buzzer lokal, dan pencatatan `room1/events` dikerjakan secara otonom oleh **ESP32-S3 (`Device`)** agar memenuhi **FR-06** (alarm tetap bunyi saat internet putus), **NFR-03** (`Pengunjung` tetap *read-only*), dan mencegah duplikasi log kejadian dari banyak klien HP.
 
 ---
 
@@ -49,37 +53,40 @@ Multi-room (selalu gunakan `room1`), web dashboard, OTA update, export PDF, kame
 1. **Stack Wajib (NFR-08):** Android Native, **Kotlin**, **Jetpack Compose (Material 3)**, **MVVM + Clean Architecture**, **Kotlin Coroutines & StateFlow**, `minSdk 26` (Android 8.0+), Firebase Auth + Firebase Realtime Database SDK.
 2. **Aturan UI & Usabilitas (NFR-07):**
    - Seluruh teks UI berbahasa **Indonesia**.
-   - Semua kondisi ruangan tampil pada **satu layar dashboard utama**.
+   - Semua kondisi ruangan tampil pada **satu layar dashboard utama** (plus tab Grafik, Kejadian, Kontrol, Profil sesuai mockup UML).
    - Tombol **MUTE Darurat** harus berukuran `>= 48 dp` dan dapat dieksekusi maksimal **2 tap** (FR-06).
-3. **Logika Wajib di Sisi Aplikasi:**
-   - **Deteksi Offline (FR-B02):** Bandingkan epoch saat ini (detik) dengan `room1/telemetry/device_timestamp`. Jika selisih `> 15 detik` (atau `device_timestamp == 0`), tampilkan banner **"Perangkat offline"** sambil tetap menampilkan data terakhir.
-   - **Proteksi Masa Pemanasan Udara (FR-03 & NFR-06):** Jika `air_quality_warming_up == true` atau `air_quality_label == "Memanaskan"`, tampilkan status pemanasan dan **jangan munculkan banner bahaya udara**.
-   - **Tampilan Label:** Tampilkan label yang mudah dipahami (`Memanaskan`/`Baik`/`Sedang`/`Buruk`, `Kering`/`Nyaman`/`Lembap`, `Gelap`/`Normal`/`Terang`, `tidak ada`/`bergerak`/`diam`), bukan hanya angka mentah.
-   - **Grafik 24 Jam & Event Log (FR-04):** Baca `room1/history/{epoch}` (key berupa Unix epoch detik, field pendek `t`, `h`, `aqi`, `lux`) untuk menampilkan tren 24 jam + nilai min, max, dan rata-rata; baca `room1/events` dengan dukungan filter 24 jam dan filter tipe (`temp_high`, `air_bad`, `night_presence`).
-   - **Status Aktuator vs Mode:** Bedakan tombol pilihan mode (`fan_mode`, `lamp_mode`: `"auto"` / `"on"` / `"off"`) dengan indikator status aktual fisik dari ESP32 (`fan_status`, `lamp_status`: `true` / `false`).
+3. **Kontrak Path & Logika Wajib di Sisi Aplikasi (Sinkron UML):**
+   - **Peran (`users/{uid}/role`):** Cek nilai `"Staff"` vs `"Pengunjung"` (huruf awal kapital).
+   - **Data Live (`room1/current`):** Gunakan `addValueEventListener` untuk membaca `temperature`, `humidity`, `humidityLabel`, `airDelta`, `airLabel`, `lightLux`, `lightLabel`, `presence`, `fanStatus`, `lampStatus`, `airWarmingUp`, dan `timestamp` (Unix epoch **milidetik**, 13 digit).
+   - **Deteksi Offline (FR-B02 / UC-12):** Hitung `System.currentTimeMillis() - current.timestamp > 15_000`. Jika terlampaui (atau `timestamp == 0`), tampilkan banner **"Perangkat offline"** sambil mempertahankan data terakhir.
+   - **Proteksi Masa Pemanasan Udara (FR-03 & NFR-06):** Jika `airWarmingUp == true` atau `airLabel == "Memanaskan"`, tampilkan status pemanasan dan **jangan munculkan banner bahaya udara**.
+   - **Banner Alarm & Mute (`room1/alarm`):** Dengarkan `room1/alarm` (`active`, `status`, `reason`, `mute`). Saat `active == true`, tampilkan banner peringatan dan tombol MUTE (khusus `Staff`) yang memanggil `getReference("room1/alarm/mute").setValue(true)`.
+   - **Kontrol Kipas & Lampu (`room1/actuator`):** Mapping tombol UI `"Otomatis"` → `"auto"`, `"Selalu ON"` → `"on"`, `"Selalu OFF"` → `"off"` ke `room1/actuator/fanMode` dan `room1/actuator/lampMode`. Status nyala/mati fisik dibaca dari `room1/current/fanStatus` & `lampStatus`.
+   - **Grafik 24 Jam (`room1/history` — FR-04 / UC-07):** Panggil `getReference("room1/history").orderByKey().limitToLast(144).get()` (ESP32 menyimpan 1 titik tiap **10 menit** = tepat 144 titik untuk 24 jam). Hitung min, max, dan rata-rata dari `temperature`, `humidity`, dan `airDelta`.
+   - **Event Log (`room1/events` — FR-04):** Baca daftar kejadian (`timestamp` ms, `type`, `severity`, `message`) dengan filter 24 jam dan filter per tipe (`temp_high`, `air_bad`, `night_presence`).
 
 ---
 
 ## 5. Aturan Pengembangan Firmware ESP32-S3 (`firmware/`)
 
-1. **Hardware Target:** **ESP32-S3 DevKitC-1 N16R8** (Dual-Core 240 MHz, 16 MB Flash, 8 MB Octal PSRAM).
-   - **LARANGAN PIN:** Jangan pernah menggunakan **GPIO 26 s.d. 37** (jalur internal Octal Flash/PSRAM).
-   - **Pinout Terkunci (`config.h`):**
-     - I2C Bersama: `GPIO 4` (SDA), `GPIO 5` (SCL) → SHT30-D (`0x44`), ENS160 (`0x53`), BH1750 (`0x23`)
-     - UART1 Radar HLK-LD2410B (256.000 bps): `GPIO 18` (RX ESP32), `GPIO 17` (TX ESP32)
-     - Active-LOW PNP Buzzer (VCC 3.3V): `GPIO 6` (`HIGH` = mati/cut-off, `LOW` = aktif)
+1. **Hardware Asli (Menggantikan Asumsi Pemodelan Awal di UML Hal. 39):**
+   - Mikrokontroler: **ESP32-S3 DevKitC-1 N16R8** (Dual-Core 240 MHz, 16 MB Flash, 8 MB Octal PSRAM). **DILARANG memakai GPIO 26–37**.
+   - Sensor & Pinout Terkunci (`config.h`):
+     - I2C `GPIO 4 (SDA)` & `GPIO 5 (SCL)` → **SHT30-D** (`0x44`), **ENS160** (`0x53`), **BH1750** (`0x23`)
+     - UART1 256.000 bps `GPIO 18 (RX)` & `GPIO 17 (TX)` → **HLK-LD2410B** mmWave 24 GHz
+     - Active-LOW PNP Buzzer (VCC 3.3V): `GPIO 6` (`HIGH` = cut-off/mati)
      - MOSFET Driver Kipas D4184: `GPIO 7`
      - Relay Lampu 1-Ch 5V (Open-Drain / Hi-Z): `GPIO 15` (`INPUT` = mati, `OUTPUT + LOW` = nyala)
 2. **Pemisahan Dual-Core FreeRTOS (`firmware/smartroom_esp32s3_firebase/`):**
-   - **Core 1 (`loop()`):** Eksklusif untuk pembacaan UART radar non-blocking, I2C sensor, evaluasi aktuator lokal, dan alarm buzzer (*offline failsafe* sesuai FR-06). **DILARANG** meletakkan panggilan HTTP/TLS atau `delay()` panjang di Core 1 karena akan membuat buffer UART radar overflow (`DISCONNECT`).
-   - **Core 0 (`FirebaseManager`):** Eksklusif untuk Wi-Fi auto-reconnect non-blocking, NTP WIB (`UTC+7`), Firebase Auth REST (`idToken` refresh 50 menit), dan HTTPS RTDB sync via `SharedState` (FreeRTOS Mutex).
+   - **Core 1 (`loop()`):** Eksklusif untuk UART radar non-blocking, pembacaan I2C, baseline `airDelta`, evaluasi aktuator lokal, dan buzzer *offline failsafe* (FR-06). **DILARANG** menjalankan HTTP/TLS atau `delay()` panjang di Core 1.
+   - **Core 0 (`FirebaseManager`):** Eksklusif untuk Wi-Fi auto-reconnect non-blocking, NTP WIB (`UTC+7`), Firebase Auth REST (`idToken` refresh tiap 50 menit), dan HTTPS RTDB sync via `SharedState` (FreeRTOS Mutex).
 3. **Algoritma yang Wajib Dipertahankan:**
-   - **3-Layer Anti-False-Positive Radar** (`on-delay 800 ms`, validasi biometrik diam/gerak, dan perisai *back-lobe* Gate 0 `65%/50%`).
+   - **3-Layer Anti-False-Positive Radar** (`on-delay 800 ms`, validasi biometrik diam/gerak, perisai *back-lobe* Gate 0 `65%/50%`).
    - **Kompensasi Lintas Sensor:** Injeksi suhu & RH dari SHT30-D ke ENS160 (`setTempAndHum`).
-   - **Kompensasi Umpan Balik Optik Lampu:** Rekam `_luxPatokanSaatNyala` + histeresis eksternal `+200 Lux` + jeda kosong `10 detik` agar lampu tidak mati-nyala sendiri.
+   - **Baseline `airDelta` + Warm-Up Suppression 3 Menit (NFR-06):** Kunci baseline TVOC di akhir warm-up 3 menit; label `"Buruk"` jika `airDelta >= 160` atau AQI >= 4 pasca warm-up.
+   - **Kompensasi Umpan Balik Optik Lampu:** Rekam `_luxPatokanSaatNyala` + histeresis eksternal `+200 Lux` + batas gelap `40 Lux` + jeda kosong `10 detik`.
    - **Histeresis Kipas:** Nyala `> 31.0 °C`, mati `<= 30.0 °C` (atau mengikuti `room1/thresholds`).
-   - **Warm-Up Suppression ENS160:** 3 menit pertama (`180.000 ms`) setelah boot bebas alarm udara palsu.
-4. **Jangan Hapus Firmware Uji Lokal:** Pertahankan `firmware/tests/09_uji_integrasi_modular_ble/` tetap utuh sebagai alat kalibrasi & uji hardware BLE lokal.
+4. **Jangan Hapus Firmware Uji Lokal:** Pertahankan `firmware/tests/09_uji_integrasi_modular_ble/` tetap utuh untuk kalibrasi BLE lokal.
 
 ---
 
@@ -87,5 +94,5 @@ Multi-room (selalu gunakan `room1`), web dashboard, OTA update, export PDF, kame
 
 1. **`main`:** Hanya berisi kode, skema, dan dokumentasi yang sudah terverifikasi/diuji.
 2. **Branch Fitur (`feat/*`, `fix/*`):** Gunakan branch terpisah (mis. `feat/firebase-integration`, `feat/android-dashboard`) untuk pengembangan dan integrasi yang belum selesai diuji di perangkat fisik.
-3. **Commit Message:** Gunakan gaya ringkas dan jelas (contoh: `feat(android): implement FR-01 temperature alert banner`, `fix(firmware): handle NTP reconnect timeout`).
+3. **Commit Message:** Gunakan gaya ringkas dan jelas (contoh: `feat(android): implement UC-03 temperature dashboard`).
 4. Jangan memaksa *force-push* ke `main` dan jangan mengubah riwayat commit yang sudah ditarik anggota tim lain.

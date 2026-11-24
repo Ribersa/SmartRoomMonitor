@@ -1,7 +1,7 @@
 #include "SensorManager.h"
 
 // ==============================================================================
-// SensorManager.cpp - Implementasi 4 Sensor + Filter Radar 3-Lapis + Warm-up NFR-06
+// SensorManager.cpp - Implementasi 4 Sensor + Filter Radar 3-Lapis + Baseline airDelta
 // ==============================================================================
 
 SensorManager::SensorManager()
@@ -11,6 +11,10 @@ SensorManager::SensorManager()
     _bh1750Ok(false),
     _radarOk(false),
     _bootMillis(0),
+    _tvocBaseline(0.0f),
+    _baselineSampleSum(0),
+    _baselineSampleCount(0),
+    _baselineLocked(false),
     _stateKehadiran(STATE_RADAR_KOSONG),
     _waktuMulaiVerifikasi(0),
     _waktuTerakhirSinyalAda(0),
@@ -75,7 +79,7 @@ void SensorManager::begin() {
   if (_ens160.begin() == 0) {
     _ens160.setPWRMode(ENS160_STANDARD_MODE);
     _ens160Ok = true;
-    Serial.println(F("[OK] ENS160 (0x53) siap. Masa pemanasan 3 menit aktif (NFR-06)."));
+    Serial.println(F("[OK] ENS160 (0x53) siap. Warm-up & kalibrasi baseline 3 menit aktif (NFR-06)."));
   } else {
     Serial.println(F("[ERR] ENS160 tidak terdeteksi di 0x53."));
   }
@@ -150,11 +154,9 @@ void SensorManager::evaluasiFilterKehadiran() {
         if (durasiCukup && (gerakAktif || _jejakNapasTerdeteksi)) {
           _stateKehadiran = STATE_RADAR_MANUSIA_HADIR;
         }
-      } else {
-        if (now - _waktuTerakhirSinyalAda > RADAR_GLITCH_TOLERANCE_MS) {
-          _stateKehadiran = STATE_RADAR_KOSONG;
-          _jejakNapasTerdeteksi = false;
-        }
+      } else if (now - _waktuTerakhirSinyalAda > RADAR_GLITCH_TOLERANCE_MS) {
+        _stateKehadiran = STATE_RADAR_KOSONG;
+        _jejakNapasTerdeteksi = false;
       }
       break;
     }
@@ -179,7 +181,7 @@ bool SensorManager::isEns160WarmingUp() const {
   return (millis() - _bootMillis) < WARMUP_ENS160_MS;
 }
 
-TelemetriData SensorManager::bacaSemua(float darkLuxThreshold) {
+TelemetriData SensorManager::bacaSemua(float darkLuxThreshold, uint16_t airDeltaModerate, uint16_t airDeltaBad) {
   TelemetriData d;
   memset(&d, 0, sizeof(TelemetriData));
 
@@ -206,9 +208,13 @@ TelemetriData SensorManager::bacaSemua(float darkLuxThreshold) {
     }
   }
 
-  // 2. ENS160 (M2) + Masa Pemanasan 3 Menit (FR-03, NFR-06)
+  // 2. ENS160 (M2) + Masa Pemanasan 3 Menit & Perhitungan airDelta terhadap Baseline (FR-03, NFR-06)
   d.ens160Ok = _ens160Ok;
-  d.warmingUp = isEns160WarmingUp();
+  unsigned long elapsedBoot = millis() - _bootMillis;
+  d.warmingUp = (elapsedBoot < WARMUP_ENS160_MS);
+  d.airDelta = 0;
+  d.airBad = false;
+
   if (_ens160Ok) {
     d.aqi  = _ens160.getAQI();
     d.tvoc = _ens160.getTVOC();
@@ -216,27 +222,49 @@ TelemetriData SensorManager::bacaSemua(float darkLuxThreshold) {
 
     if (d.warmingUp || d.aqi == 0) {
       d.labelAQI = "Memanaskan";
-    } else if (d.aqi <= 2) {
-      d.labelAQI = "Baik";
-    } else if (d.aqi == 3) {
-      d.labelAQI = "Sedang";
+      // Rekam sampel baseline udara normal pada menit ke-2 s.d. ke-3 saat elemen mulai stabil
+      if (elapsedBoot >= WARMUP_BASELINE_START_MS && d.aqi > 0) {
+        _baselineSampleSum += d.tvoc;
+        _baselineSampleCount++;
+      }
     } else {
-      d.labelAQI = "Buruk";
+      if (!_baselineLocked) {
+        if (_baselineSampleCount > 0) {
+          _tvocBaseline = (float)_baselineSampleSum / (float)_baselineSampleCount;
+        } else {
+          _tvocBaseline = (float)d.tvoc;
+        }
+        _baselineLocked = true;
+        Serial.printf("[ENS160] Baseline udara normal terkunci: %.1f ppb TVOC.\n", _tvocBaseline);
+      } else if ((float)d.tvoc < _tvocBaseline) {
+        // Adaptasi perlahan ke bawah jika udara ruangan membaik lebih bersih dari baseline awal
+        _tvocBaseline = (_tvocBaseline * 0.95f) + ((float)d.tvoc * 0.05f);
+      }
+
+      uint16_t baseInt = (uint16_t)roundf(_tvocBaseline);
+      d.airDelta = (d.tvoc > baseInt) ? (d.tvoc - baseInt) : 0;
+
+      if (d.airDelta >= airDeltaBad || d.aqi >= 4) {
+        d.labelAQI = "Buruk";
+        d.airBad = true;
+      } else if (d.airDelta >= airDeltaModerate || d.aqi == 3) {
+        d.labelAQI = "Sedang";
+      } else {
+        d.labelAQI = "Baik";
+      }
     }
   } else {
     d.labelAQI = "Memanaskan";
   }
   _radar.read();
 
-  // 3. BH1750 (M4)
+  // 3. BH1750 (M4) — Sesuai UML UC-05: < darkLuxThreshold = "Gelap", >= = "Terang"
   d.bh1750Ok = _bh1750Ok;
   d.lux = -1.0f;
-  d.labelCahaya = "Normal";
+  d.labelCahaya = "Terang";
   if (_bh1750Ok) {
     d.lux = _lightMeter.readLightLevel();
-    if (d.lux < darkLuxThreshold) d.labelCahaya = "Gelap";
-    else if (d.lux < 250.0f) d.labelCahaya = "Normal";
-    else d.labelCahaya = "Terang";
+    d.labelCahaya = (d.lux < darkLuxThreshold) ? "Gelap" : "Terang";
   }
   _radar.read();
 
@@ -274,7 +302,6 @@ bool SensorManager::setRadarGate(uint8_t gateMaks, uint16_t timeoutDetik) {
 }
 
 void SensorManager::boostSensitivitasNapas() {
-  // Gate 0 (0 - 75 cm): Ambang tinggi untuk menahan radiasi back-lobe PCB
   _radar.setGateSensitivityThreshold(0, 65, 50);
   _radar.setGateSensitivityThreshold(1, 45, 30);
   _radar.setGateSensitivityThreshold(2, 30, RADAR_BREATHING_THRESHOLD);

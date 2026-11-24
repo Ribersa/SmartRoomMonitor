@@ -8,7 +8,7 @@ BuzzerManager::BuzzerManager() : _muted(false) {}
 
 void BuzzerManager::begin() {
   pinMode(PIN_BUZZER, OUTPUT);
-  matikan(); // HIGH = cut-off transistor PNP (bebas dengung)
+  matikan();
 }
 
 void BuzzerManager::matikan() {
@@ -89,8 +89,8 @@ bool BuzzerManager::isMuted() const {
   return _muted;
 }
 
-AlarmStatus BuzzerManager::evaluasiAlarm(float suhu, float tempAlert, uint8_t aqi, bool warmingUp, bool adaOrang, bool jamMalam) {
-  AlarmStatus st = { false, false, "none" };
+AlarmStatus BuzzerManager::evaluasiAlarm(float suhu, float tempAlert, bool airBad, uint8_t aqi, bool warmingUp, bool adaOrang, bool jamMalam) {
+  AlarmStatus st = { false, false, "normal", "none" };
 
   // Prioritas 1: Kehadiran di Jam Malam (FR-05)
   if (jamMalam && adaOrang) {
@@ -98,8 +98,10 @@ AlarmStatus BuzzerManager::evaluasiAlarm(float suhu, float tempAlert, uint8_t aq
     st.reason = "night_presence";
     if (!_muted) {
       st.sounding = true;
+      st.statusStr = "aktif";
       alarmJamMalam();
     } else {
+      st.statusStr = "dibungkam";
       matikan();
     }
     return st;
@@ -111,22 +113,26 @@ AlarmStatus BuzzerManager::evaluasiAlarm(float suhu, float tempAlert, uint8_t aq
     st.reason = "temp_high";
     if (!_muted) {
       st.sounding = true;
+      st.statusStr = "aktif";
       alarmSuhuTinggi();
     } else {
+      st.statusStr = "dibungkam";
       matikan();
     }
     return st;
   }
 
-  // Prioritas 3: Udara Buruk AQI 4-5 setelah masa pemanasan 3 menit selesai (FR-03 & NFR-06)
-  if (!warmingUp && aqi >= 4) {
+  // Prioritas 3: Udara Buruk pasca warm-up 3 menit (FR-03 & NFR-06)
+  if (!warmingUp && airBad) {
     st.active = true;
     st.reason = "air_bad";
     if (!_muted) {
       st.sounding = true;
+      st.statusStr = "aktif";
       if (aqi >= 5) alarmAQI_Level5();
       else alarmAQI_Level4();
     } else {
+      st.statusStr = "dibungkam";
       matikan();
     }
     return st;

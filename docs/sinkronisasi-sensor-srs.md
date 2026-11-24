@@ -1,40 +1,30 @@
-# Sinkronisasi Spesifikasi Sensor Hardware & SRS v0.9
+# Sinkronisasi Spesifikasi Sensor Hardware, SRS v0.9 & UML
 **Proyek:** SmartRoomMonitor (Aplikasi Android & Node Sensor IoT ESP32-S3)  
-**Baseline Dokumen:** [`SRS-SmartRoomMonitor-v0.9.md`](SRS-SmartRoomMonitor-v0.9.md)  
+**Baseline Dokumen:** [`SRS-SmartRoomMonitor-v0.9.md`](SRS-SmartRoomMonitor-v0.9.md) & Dokumen Pemodelan UML SmartRoomMonitor  
 **Kontrak Backend Resmi:** [`firebase/schema-v0.9.json`](../firebase/schema-v0.9.json) & [`firebase/database.rules.json`](../firebase/database.rules.json)
 
 ---
 
-## 1. Matriks Sinkronisasi: Kebutuhan SRS v0.9 vs Sensor Hardware
+## 1. Matriks Sinkronisasi: SRS v0.9, UML & Hardware Fisik Asli
 
-| ID (SRS v0.9) | Nama Kebutuhan | Sensor / Aktuator Hardware | Karakteristik Output & Logika Firmware | PIC Modul |
+*(Catatan: Menggantikan asumsi pemodelan awal DHT22/MQ-135/LDR/PIR pada UML Hal. 39 dengan hardware fisik aktual.)*
+
+| ID (SRS v0.9) | Use Case UML | Sensor / Aktuator Fisik | Path Firebase & Logika Firmware | PIC Modul |
 |---|---|---|---|---|
-| **FR-01** | Suhu & Peringatan Suhu Tinggi | **Sensirion SHT30-D** (I2C `0x44`) + Buzzer | Float (°C), ±0.2°C. Jika `temperature > temp_alert` (default `35.0 °C`) → `alarm_active = true`, bunyi buzzer lokal, catat `events` (`temp_high`, debounce 60 dtk). | M1 Syakir |
-| **FR-02** | Kontrol Kipas | **Driver MOSFET D4184 (GPIO 7)** + Kipas 5V | Mode: `auto` / `on` / `off`. Pada `auto`: ON jika suhu `> temp_fan_on` (`31.0 °C`), OFF jika turun `temp_fan_hysteresis` (`<= 30.0 °C`). | M1 Syakir |
-| **FR-03** | Kualitas Udara & Peringatan | **ScioSense ENS160** (I2C `0x53`) + Buzzer | Output `air_quality_aqi` (1–5), `tvoc` (ppb), `eco2` (ppm). Selama 3 menit awal (`air_quality_warming_up = true`) label `"Memanaskan"` dan alarm ditekan (**NFR-06**). Pasca warm-up: AQI 1–2 `"Baik"`, AQI 3 `"Sedang"`, AQI 4–5 `"Buruk"` → trigger alarm & event `air_bad`. | M2 Zakariya |
-| **FR-04** | Grafik 24 Jam & Event Log | **SHT30-D, ENS160, BH1750** | ESP32 menyimpan sampel tiap 5 menit ke `/room1/history/{epoch}` (`t`, `h`, `aqi`, `lux`, retensi 24 jam) dan mencatat kejadian penting ke `/room1/events`. | M2 Zakariya |
-| **FR-05** | Kehadiran & Peringatan Jam Malam | **HLK-LD2410B mmWave 24 GHz** (UART1 `GPIO 17/18`) | 3-Layer Anti-False-Positive Validator (`on-delay 800 ms`, validasi biometrik diam/gerak, back-lobe shield Gate 0). Status: `"tidak ada"`, `"bergerak"`, `"diam"`. Jika jam NTP WIB `22:00–06:00` dan `presence_detected == true` → alarm & event `night_presence`. | M3 Deswiryawan |
-| **FR-06** | Bunyi Peringatan & Mute Darurat | **Buzzer Pasif Active-LOW PNP (GPIO 6, VCC 3.3V)** | Tetap berbunyi lokal walau Wi-Fi/internet putus (Core 1 otonom). Flag `controls/alarm_muted = true` dari Staff membungkam buzzer dalam <= 7 detik (polling Core 0 tiap 2 dtk). | M3 Deswiryawan |
-| **FR-07** | Tingkat Cahaya & Label | **Rohm BH1750** (I2C `0x23`) | Output `light_lux` (float) + `light_label`: `"Gelap"` (`< 50 Lux`), `"Normal"` (`50–249 Lux`), `"Terang"` (`>= 250 Lux`). | M4 Fattih |
-| **FR-08** | Kontrol Lampu | **Relay 1-Ch 5V Open-Drain (GPIO 15)** + Lampu 5V | Mode: `auto` / `on` / `off`. Pada `auto`: ON saat gelap (`< light_dark_lux`) DAN ada orang; OFF jika cahaya naik `+200 Lux` di atas cahaya lampu sendiri (kompensasi umpan balik optik) ATAU kosong `>= 10 detik`. | M4 Fattih |
-| **FR-B01** | Autentikasi & Peran | **Firebase Auth + RTDB Rules** | Login Email/Password. Peran disimpan di `/users/{uid}/role`: `"visitor"` (read-only), `"staff"` (kontrol & mute), `"device"` (khusus ESP32). | Bersama |
-| **FR-B02** | Dashboard & Status Offline | **NTP Epoch Heartbeat (`device_timestamp`)** | ESP32 mengirim `/room1/telemetry` tiap 3 detik. Jika `waktu_sekarang - device_timestamp > 15 detik`, aplikasi menampilkan banner `"Perangkat offline"`. | Bersama |
+| **FR-01** | UC-03 | **Sensirion SHT30-D** (I2C `0x44`) + Buzzer | `room1/current/temperature`. Jika `> tempAlert` (`35.0 °C`) → ESP32 bunyikan buzzer lokal, set `room1/alarm`, catat `room1/events` (`temp_high`, debounce 60 dtk). | M1 Syakir |
+| **FR-02** | UC-08 | **Driver MOSFET D4184 (GPIO 7)** + Kipas 5V | Staff tulis `room1/actuator/fanMode` (`auto`/`on`/`off`). ESP32 terapkan histeresis (`> 31 °C` ON, `<= 30 °C` OFF) dan kirim `room1/current/fanStatus`. | M1 Syakir |
+| **FR-03** | UC-04 | **ScioSense ENS160** (I2C `0x53`) + Buzzer | `room1/current/{airDelta, airLabel, airAqi, airWarmingUp}`. Warm-up 3 menit (`"Memanaskan"`, bebas alarm — **NFR-06**), lalu kunci baseline TVOC untuk hitung `airDelta`. Jika `airDelta >= 160` atau AQI >= 4 → `"Buruk"`, alarm & event `air_bad`. | M2 Zakariya |
+| **FR-04** | UC-07 | **SHT30-D, ENS160, BH1750** | ESP32 simpan sampel tiap **10 menit** ke `room1/history/{epochSec}` (144 titik / 24 jam, sesuai `limitToLast(144)`) + catat kejadian ke `room1/events`. | M2 Zakariya |
+| **FR-05** | UC-06 | **HLK-LD2410B mmWave 24 GHz** (UART1 `GPIO 17/18`) | 3-Layer Anti-False-Positive Validator + Gate 0 Back-Lobe Shield. Status `room1/current/presence`: `"tidak ada"`, `"bergerak"`, `"diam"`. Jam malam NTP WIB `22:00–06:00` → alarm & event `night_presence`. | M3 Deswiryawan |
+| **FR-06** | UC-10 | **Buzzer Pasif Active-LOW PNP (GPIO 6, VCC 3.3V)** | Berbunyi lokal walau internet putus (Core 1 otonom). Staff kirim `room1/alarm/mute = true` → ESP32 matikan buzzer `<= 7 detik` & perbarui `room1/alarm/status = "dibungkam"`. | M3 Deswiryawan |
+| **FR-07** | UC-05 | **Rohm BH1750** (I2C `0x23`) | `room1/current/{lightLux, lightLabel}`: `"Gelap"` (`< 40 lux`), `"Terang"` (`>= 40 lux`). | M4 Fattih |
+| **FR-08** | UC-09 | **Relay 1-Ch 5V Open-Drain (GPIO 15)** + Lampu 5V | Staff tulis `room1/actuator/lampMode` (`auto`/`on`/`off`). Pada `auto`: ON jika gelap (`< 40 lux`) & ada orang; OFF jika cahaya luar naik `+200 lux` (anti-optical-feedback) atau kosong `>= 10 detik`. Status balik ke `room1/current/lampStatus`. | M4 Fattih |
+| **FR-B01** | UC-01, 02, 11 | **Firebase Auth + RTDB Rules** | Login Email/Password. Peran di `users/{uid}/role`: `"Pengunjung"` (read-only), `"Staff"` (kontrol & mute), `"Device"` (ESP32). | Bersama |
+| **FR-B02** | UC-12 | **NTP Epoch Heartbeat (`timestamp` ms)** | ESP32 update `room1/current` tiap 3 detik dengan `timestamp` milidetik (13 digit). Jika `System.currentTimeMillis() - timestamp > 15_000` → banner `"Perangkat offline"`. | Bersama |
 
 ---
 
-## 2. Standar Skema Data Firebase RTDB v0.9 (NFR-05)
-
-Struktur JSON resmi mengacu penuh pada [`firebase/schema-v0.9.json`](../firebase/schema-v0.9.json):
-- `/users/{uid}` — metadata peran (`staff` / `visitor` / `device`).
-- `/room1/telemetry` — pembacaan sensor real-time & status alarm terbaru.
-- `/room1/controls` — mode perintah dari Staff (`fan_mode`, `lamp_mode`, `alarm_muted`) serta feedback aktual perangkat (`fan_status`, `lamp_status`).
-- `/room1/thresholds` — batas ambang dinamis (diubah lewat Firebase Console).
-- `/room1/history/{epoch}` — data time-series 24 jam (interval 5 menit) untuk grafik FR-04.
-- `/room1/events/{pushId}` — log kejadian suhu tinggi, udara buruk, dan kehadiran jam malam.
-
----
-
-## 3. Kompensasi Lintas Sensor (Cross-Sensor Compensation)
+## 2. Kompensasi Lintas Sensor (Cross-Sensor Compensation)
 
 1. Data suhu presisi (±0.2°C) dan kelembapan (±2% RH) dibaca dari **Sensirion SHT30-D** (`0x44`).
-2. ESP32-S3 menginjeksikan nilai suhu & RH dari SHT30-D ke register kompensasi **ScioSense ENS160** (`0x53`) pada setiap siklus evaluasi (`setTempAndHum`), sehingga pembacaan TVOC/eCO2/AQI stabil terhadap perubahan suhu dan kelembapan ruangan.
+2. ESP32-S3 menginjeksikan nilai suhu & RH dari SHT30-D ke register kompensasi **ScioSense ENS160** (`0x53`) pada setiap siklus evaluasi (`setTempAndHum`), dan mengunci baseline TVOC pada menit ke-2 hingga ke-3 masa pemanasan untuk menghasilkan `airDelta` yang stabil (**NFR-06**).

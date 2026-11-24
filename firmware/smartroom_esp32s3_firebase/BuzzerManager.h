@@ -11,6 +11,7 @@
 struct AlarmStatus {
   bool active;          // true jika ada kondisi bahaya terpicu (walau sedang di-mute)
   bool sounding;        // true jika buzzer sedang berbunyi (active && !muted)
+  const char* statusStr;// "normal", "aktif", "dibungkam" (UML UC-10)
   const char* reason;   // "none", "night_presence", "temp_high", "air_bad"
 };
 
@@ -34,5 +35,5 @@ public:
   void setMuted(bool mute);
   bool isMuted() const;
 
-  AlarmStatus evaluasiAlarm(float suhu, float tempAlert, uint8_t aqi, bool warmingUp, bool adaOrang, bool jamMalam);
+  AlarmStatus evaluasiAlarm(float suhu, float tempAlert, bool airBad, uint8_t aqi, bool warmingUp, bool adaOrang, bool jamMalam);
 };

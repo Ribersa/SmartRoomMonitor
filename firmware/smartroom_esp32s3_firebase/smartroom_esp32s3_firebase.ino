@@ -1,11 +1,12 @@
 // ==============================================================================
 // smartroom_esp32s3_firebase.ino - FIRMWARE PRODUKSI DUAL-CORE ESP32-S3 + FIREBASE
-// Proyek: SmartRoomMonitor (RPL) - Baseline SRS v0.9 (FR-01 s.d. FR-08, NFR-01 s.d. NFR-08)
+// Proyek: SmartRoomMonitor (RPL) - Sinkron SRS v0.9 & Pemodelan UML
 // Arsitektur:
 //   - Core 1 (loop): UART Radar LD2410B (256kbps), I2C (SHT30, ENS160, BH1750),
-//                    Kontrol Kipas Histeresis, Lampu Adaptif +200Lx, Buzzer Offline Failsafe
+//                    Baseline airDelta (NFR-06), Kipas Histeresis, Lampu Adaptif +200Lx,
+//                    Buzzer Lokal Offline Failsafe (FR-06) & Pencatatan Events
 //   - Core 0 (task): Wi-Fi Auto-Reconnect, NTP WIB (UTC+7), Firebase Auth REST,
-//                    Sinkronisasi RTDB (/telemetry, /controls, /thresholds, /history, /events)
+//                    Sinkronisasi RTDB (/current, /actuator, /alarm, /thresholds, /history, /events)
 // ==============================================================================
 
 #include "config.h"
@@ -41,7 +42,7 @@ void tungguDenganRadar(unsigned long durasiMs) {
 
 void tampilkanMenuSerial() {
   Serial.println(F("\n---------------------------------------------------------------------"));
-  Serial.println(F("  SmartRoomMonitor ESP32-S3 (Firebase RTDB Produksi - SRS v0.9)"));
+  Serial.println(F("  SmartRoomMonitor ESP32-S3 (Firebase RTDB Produksi - SRS v0.9 / UML)"));
   Serial.println(F("  Perintah Serial Debug: [s] Status | [x] Toggle Mute | [h] Bantuan"));
   Serial.println(F("---------------------------------------------------------------------\n"));
 }
@@ -79,7 +80,7 @@ void setup() {
   delay(1500);
 
   Serial.println(F("\n====================================================================="));
-  Serial.println(F("  [SmartRoomMonitor] FIRMWARE PRODUKSI ESP32-S3 + FIREBASE RTDB v0.9"));
+  Serial.println(F("  [SmartRoomMonitor] FIRMWARE PRODUKSI ESP32-S3 + FIREBASE (UML v0.9)"));
   Serial.println(F("====================================================================="));
 
   sharedState.begin();
@@ -88,7 +89,6 @@ void setup() {
   fan.begin();
   light.begin();
 
-  // Mulai task Wi-Fi, NTP, dan Firebase pada Core 0
   firebaseMgr.begin(&sharedState, &timeMgr);
 
   buzzer.nadaSambutBoot();
@@ -99,13 +99,12 @@ void loop() {
   // 1. Pompa UART Radar 256kbps secara non-blocking pada Core 1
   sensors.updateRadar();
 
-  // 2. Cek perintah kontrol terbaru yang ditarik Core 0 dari Firebase (/room1/controls)
-  ControlSnapshot ctrl;
+  // 2. Terapkan perintah Staff dari Firebase (/room1/actuator & /room1/alarm/mute)
+  ActuatorControlState ctrl;
   if (sharedState.consumeRemoteControls(ctrl)) {
     fan.setModeFromString(ctrl.fanMode);
     light.setModeFromString(ctrl.lampMode);
-    buzzer.setMuted(ctrl.alarmMuted);
-    sharedState.setActuatorStatus(fan.isNyala(), light.isNyala());
+    buzzer.setMuted(ctrl.alarmMute);
   }
 
   // 3. Cek input Serial debug
@@ -117,9 +116,9 @@ void loop() {
     lastSensorEvalMs = now;
 
     ThresholdSnapshot th = sharedState.getThresholds();
-    TelemetriData data = sensors.bacaSemua(th.lightDarkLux);
+    TelemetriData data = sensors.bacaSemua(th.lightDarkLux, th.airDeltaModerate, th.airDeltaBad);
 
-    // Evaluasi Kipas FR-02 dengan jeda 60ms saat beralih untuk stabilitas daya
+    // Evaluasi Kipas FR-02 dengan jeda 60ms saat beralih
     bool kipasSebelum = fan.isNyala();
     fan.evaluasiSuhu(data.suhu, th.tempFanOn, th.tempFanHysteresis);
     if (fan.isNyala() != kipasSebelum) {
@@ -133,22 +132,24 @@ void loop() {
       tungguDenganRadar(60);
     }
 
-    // Evaluasi Jam Malam NTP WIB (FR-05) & Alarm Buzzer (FR-01, FR-03, FR-05, FR-06)
+    // Evaluasi Jam Malam NTP WIB (FR-05) & Alarm Buzzer Lokal (FR-01, FR-03, FR-05, FR-06)
     bool jamMalam = timeMgr.isJamMalam(th.nightStartHour, th.nightEndHour);
     AlarmStatus alarm = buzzer.evaluasiAlarm(
-      data.suhu, th.tempAlert, data.aqi, data.warmingUp, data.adaOrang, jamMalam
+      data.suhu, th.tempAlert, data.airBad, data.aqi, data.warmingUp, data.adaOrang, jamMalam
     );
     sensors.updateRadar();
 
-    // Auto-unmute jika seluruh kondisi bahaya telah benar-benar reda
+    // Auto-unmute saat seluruh kondisi bahaya sudah benar-benar normal
     if (prevAlarmActive && !alarm.active && buzzer.isMuted()) {
       buzzer.setMuted(false);
       sharedState.requestLocalMuteUpdate(false);
     }
     prevAlarmActive = alarm.active;
 
-    // Pencatatan Event Log (FR-01, FR-03, FR-04, FR-05) dengan debounce 60 detik
-    uint64_t epochNow = timeMgr.getEpochSeconds();
+    sharedState.setAlarmState(alarm.active, alarm.sounding, alarm.statusStr, alarm.reason);
+
+    // Pencatatan Event Log oleh ESP32 (FR-01, FR-03, FR-04, FR-05) — debounce 60 detik
+    uint64_t epochMs = timeMgr.getEpochSeconds() * 1000ULL;
     char jamBuf[16];
     timeMgr.formatJamWIB(jamBuf, sizeof(jamBuf));
 
@@ -156,62 +157,61 @@ void loop() {
         (lastTempEventMs == 0 || now - lastTempEventMs >= DEBOUNCE_EVENT_MS)) {
       lastTempEventMs = now;
       char msg[128];
-      snprintf(msg, sizeof(msg), "Suhu ruangan mencapai %.1f C melebihi batas %.1f C (%s)", data.suhu, th.tempAlert, jamBuf);
-      sharedState.pushEvent(epochNow, "temp_high", "danger", msg);
+      snprintf(msg, sizeof(msg), "%.1f C, di atas batas %.1f C. Buzzer berbunyi (%s).", data.suhu, th.tempAlert, jamBuf);
+      sharedState.pushEvent(epochMs, "temp_high", "danger", msg);
     }
 
-    if (!data.warmingUp && data.aqi >= 4 &&
+    if (!data.warmingUp && data.airBad &&
         (lastAirEventMs == 0 || now - lastAirEventMs >= DEBOUNCE_EVENT_MS)) {
       lastAirEventMs = now;
       char msg[128];
-      snprintf(msg, sizeof(msg), "Kualitas udara buruk (AQI %u, TVOC %u ppb, eCO2 %u ppm) pada %s", data.aqi, data.tvoc, data.eco2, jamBuf);
-      sharedState.pushEvent(epochNow, "air_bad", (data.aqi >= 5) ? "danger" : "warning", msg);
+      snprintf(msg, sizeof(msg), "Delta %u dari baseline (AQI %u), label Buruk (%s).", data.airDelta, data.aqi, jamBuf);
+      sharedState.pushEvent(epochMs, "air_bad", (data.aqi >= 5) ? "danger" : "warning", msg);
     }
 
     if (jamMalam && data.adaOrang &&
         (lastNightEventMs == 0 || now - lastNightEventMs >= DEBOUNCE_EVENT_MS)) {
       lastNightEventMs = now;
       char msg[128];
-      snprintf(msg, sizeof(msg), "Terdeteksi keberadaan orang (%s) pada jam malam (%s)", data.presenceState, jamBuf);
-      sharedState.pushEvent(epochNow, "night_presence", "danger", msg);
+      snprintf(msg, sizeof(msg), "Ada orang (%s) pada jam malam (%s).", data.presenceState, jamBuf);
+      sharedState.pushEvent(epochMs, "night_presence", "danger", msg);
     }
 
-    // Perbarui snapshot thread-safe untuk dikirim ke Firebase oleh Core 0
-    TelemetrySnapshot snap;
+    // Perbarui snapshot /room1/current untuk dikirim Core 0 ke Firebase
+    CurrentSnapshot snap;
     memset(&snap, 0, sizeof(snap));
-    snap.valid               = true;
-    snap.temperature         = data.suhu;
-    snap.humidity            = data.kelembapan;
+    snap.valid            = true;
+    snap.temperature      = data.suhu;
+    snap.humidity         = data.kelembapan;
     strncpy(snap.humidityLabel, data.labelKelembapan, sizeof(snap.humidityLabel) - 1);
-    snap.airQualityAqi       = data.aqi;
-    snap.airQualityTvoc      = data.tvoc;
-    snap.airQualityEco2      = data.eco2;
-    snap.airQualityWarmingUp = data.warmingUp;
-    strncpy(snap.airQualityLabel, data.labelAQI, sizeof(snap.airQualityLabel) - 1);
-    snap.lightLux            = data.lux;
+    snap.airDelta         = data.airDelta;
+    strncpy(snap.airLabel, data.labelAQI, sizeof(snap.airLabel) - 1);
+    snap.airAqi           = data.aqi;
+    snap.airTvoc          = data.tvoc;
+    snap.airEco2          = data.eco2;
+    snap.airWarmingUp     = data.warmingUp;
+    snap.lightLux         = data.lux;
     strncpy(snap.lightLabel, data.labelCahaya, sizeof(snap.lightLabel) - 1);
-    snap.presenceDetected    = data.adaOrang;
-    strncpy(snap.presenceState, data.presenceState, sizeof(snap.presenceState) - 1);
-    snap.alarmActive         = alarm.active;
-    strncpy(snap.alarmReason, alarm.reason, sizeof(snap.alarmReason) - 1);
-    snap.nightModeActive     = jamMalam;
-    snap.deviceTimestamp     = epochNow;
+    strncpy(snap.presence, data.presenceState, sizeof(snap.presence) - 1);
+    snap.presenceDetected = data.adaOrang;
+    snap.fanStatus        = fan.isNyala();
+    snap.lampStatus       = light.isNyala();
+    snap.nightModeActive  = jamMalam;
+    snap.timestampMs      = epochMs;
 
-    sharedState.setTelemetry(snap);
-    sharedState.setActuatorStatus(fan.isNyala(), light.isNyala());
+    sharedState.setCurrent(snap);
 
-    // Log ringkas ke Serial Monitor
     NetworkStatusSnapshot net = sharedState.getNetworkStatus();
-    Serial.printf("[%s] T:%.1fC H:%.0f%%(%s) | AQI:%u(%s) TVOC:%u | Lux:%.0f(%s) | Radar:%s | Fan:%s Lamp:%s | Cloud:%s(HTTP %d)\n",
+    Serial.printf("[%s] T:%.1fC H:%.0f%% | Air:%s(d=%u,AQI=%u) | Lux:%.0f(%s) | Radar:%s | Fan:%s Lamp:%s | Alarm:%s | Cloud:%s(HTTP %d)\n",
                   jamBuf,
                   isnan(data.suhu) ? 0.0f : data.suhu,
                   isnan(data.kelembapan) ? 0.0f : data.kelembapan,
-                  data.labelKelembapan,
-                  data.aqi, data.labelAQI, data.tvoc,
+                  data.labelAQI, data.airDelta, data.aqi,
                   data.lux < 0 ? 0.0f : data.lux, data.labelCahaya,
                   data.radarOk ? data.presenceState : "DISCONNECT",
                   fan.isNyala() ? "ON" : "OFF",
                   light.isNyala() ? "ON" : "OFF",
+                  alarm.statusStr,
                   net.wifiConnected ? (net.firebaseAuthed ? "ONLINE" : "AUTH..") : "OFFLINE",
                   net.lastHttpCode);
   }

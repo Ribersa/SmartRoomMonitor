@@ -10,29 +10,39 @@
     },
     "room1": {
       ".read": "auth != null && root.child('users').child(auth.uid).child('role').exists()",
-      "telemetry": {
-        ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'device'",
-        ".validate": "newData.hasChildren(['temperature', 'humidity', 'air_quality_aqi', 'light_lux', 'presence_state', 'device_timestamp'])"
+      "current": {
+        ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'Device'",
+        ".validate": "newData.hasChildren(['temperature', 'humidity', 'airDelta', 'airLabel', 'lightLux', 'presence', 'fanStatus', 'lampStatus', 'timestamp'])"
       },
-      "controls": {
-        "fan_mode": {
-          ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'staff'",
+      "actuator": {
+        "fanMode": {
+          ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'Staff'",
           ".validate": "newData.isString() && (newData.val() === 'auto' || newData.val() === 'on' || newData.val() === 'off')"
         },
-        "lamp_mode": {
-          ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'staff'",
+        "lampMode": {
+          ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'Staff'",
           ".validate": "newData.isString() && (newData.val() === 'auto' || newData.val() === 'on' || newData.val() === 'off')"
-        },
-        "alarm_muted": {
-          ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'staff' || root.child('users').child(auth.uid).child('role').val() === 'device')",
+        }
+      },
+      "alarm": {
+        "active": {
+          ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'Device'",
           ".validate": "newData.isBoolean()"
         },
-        "fan_status": {
-          ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'device'",
+        "buzzer": {
+          ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'Device'",
           ".validate": "newData.isBoolean()"
         },
-        "lamp_status": {
-          ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'device'",
+        "status": {
+          ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'Device'",
+          ".validate": "newData.isString() && (newData.val() === 'normal' || newData.val() === 'aktif' || newData.val() === 'dibungkam')"
+        },
+        "reason": {
+          ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'Device'",
+          ".validate": "newData.isString()"
+        },
+        "mute": {
+          ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'Staff' || root.child('users').child(auth.uid).child('role').val() === 'Device')",
           ".validate": "newData.isBoolean()"
         }
       },
@@ -41,14 +51,14 @@
       },
       "history": {
         "$epoch": {
-          ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'device'",
-          ".validate": "newData.hasChildren(['t', 'h', 'aqi', 'lux'])"
+          ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'Device'",
+          ".validate": "newData.hasChildren(['temperature', 'humidity', 'airDelta', 'airAqi', 'lightLux', 'timestamp'])"
         }
       },
       "events": {
         ".indexOn": ["timestamp", "type"],
         "$eventId": {
-          ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'device'",
+          ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'Device'",
           ".validate": "newData.hasChildren(['timestamp', 'type', 'severity', 'message'])"
         }
       }

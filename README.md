@@ -12,23 +12,24 @@ Sistem pemantauan dan otomatisasi kondisi ruangan **real-time** berbasis **ESP32
 Data dikirimkan secara kontinu via Wi-Fi ke **Firebase Realtime Database** dan divisualisasikan pada aplikasi mobile **Android Native (Kotlin + Jetpack Compose)**, lengkap dengan kontrol otomatis kipas (PWM MOSFET), saklar lampu adaptif (Relay), alarm jam malam (Buzzer), serta grafik riwayat kejadian 24 jam.
 
 > [!IMPORTANT]
-> ## 🔥 MULAI DI SINI — Kontrak Firebase untuk Aplikasi Android (SRS v0.9)
+> ## 🔥 MULAI DI SINI — Kontrak Firebase untuk Aplikasi Android (SRS v0.9 & Sinkron UML)
 > Pengembang aplikasi Android (**Kotlin + Jetpack Compose**) **cukup mengacu pada 3 berkas Firebase berikut** untuk membangun model data, autentikasi peran, dashboard, grafik 24 jam, dan kontrol perangkat:
 >
 > * **Skema JSON Resmi (Kontrak Field & Tipe Data):** [`firebase/schema-v0.9.json`](firebase/schema-v0.9.json)
-> * **Security Rules & Matriks Peran (`visitor` / `staff` / `device`):** [`firebase/database.rules.json`](firebase/database.rules.json)
+> * **Security Rules & Matriks Peran (`Pengunjung` / `Staff` / `Device`):** [`firebase/database.rules.json`](firebase/database.rules.json)
 > * **Panduan Setup Firebase Console & Hak Akses:** [`firebase/README.md`](firebase/README.md)
 > * **Aturan Kerja AI Coding Agent untuk Repo Ini:** [`AGENTS.md`](AGENTS.md)
 >
-> **Ringkasan Path RTDB yang Dipakai Aplikasi:**
+> **Ringkasan Path RTDB yang Dipakai Aplikasi (100% Selaras UML):**
 > | Path Firebase RTDB | Akses Aplikasi | Kegunaan di Aplikasi Android |
 > |---|---|---|
-> | `users/{uid}/role` | Read (milik sendiri) | Menentukan peran `"visitor"` (read-only) atau `"staff"` (boleh kontrol & mute). |
-> | `room1/telemetry` | Read (live tiap 3–5 dtk) | Suhu, kelembapan, label udara (`Memanaskan`/`Baik`/`Sedang`/`Buruk`), lux, kehadiran (`tidak ada`/`bergerak`/`diam`), status alarm, dan `device_timestamp` (deteksi offline > 15 dtk). |
-> | `room1/controls` | Read semua; **Staff** Write `fan_mode`, `lamp_mode`, `alarm_muted` | Saklar mode kipas (`auto`/`on`/`off`), mode lampu (`auto`/`on`/`off`), tombol MUTE darurat (`<= 7 dtk`), serta baca status aktual `fan_status` & `lamp_status`. |
-> | `room1/thresholds` | Read-only (diubah via Firebase Console) | Menampilkan batas peringatan aktif (suhu > 35°C, kipas > 31°C, jam malam 22:00–06:00). |
-> | `room1/history/{epoch}` | Read (24 jam, interval 5 menit) | Sumber data grafik 24 jam (`t`, `h`, `aqi`, `lux`) beserta nilai min/max/rata-rata (**FR-04**). |
-> | `room1/events/{pushId}` | Read (terindeks `timestamp` & `type`) | Daftar log kejadian (`temp_high`, `air_bad`, `night_presence`) dengan filter 24 jam & tipe (**FR-04**). |
+> | `users/{uid}/role` | Read (milik sendiri) | Menentukan peran `"Pengunjung"` (read-only) atau `"Staff"` (boleh kontrol & mute). |
+> | `room1/current` | Read (`addValueEventListener`, update tiap 3–5 dtk) | `temperature`, `humidity`, `airDelta`, `airLabel` (`Memanaskan`/`Baik`/`Sedang`/`Buruk`), `lightLux`, `lightLabel` (`Gelap`/`Terang`), `presence` (`tidak ada`/`bergerak`/`diam`), `fanStatus`, `lampStatus`, dan `timestamp` (ms, deteksi offline `> 15_000 ms`). |
+> | `room1/actuator` | Read semua; **Staff** Write `fanMode`, `lampMode` | Pilihan mode kipas & lampu (`"auto"` / `"on"` / `"off"`). |
+> | `room1/alarm` | Read semua; **Staff** Write `mute` | Membaca status alarm (`active`, `buzzer`, `status`: `"normal"`/`"aktif"`/`"dibungkam"`, `reason`) dan kirim `room1/alarm/mute = true` saat tombol MUTE ditekan (`<= 7 dtk`). |
+> | `room1/thresholds` | Read-only (diubah via Firebase Console) | Membaca batas aktif (suhu > 35°C, kipas > 31°C, gelap < 40 lux, `airDelta >= 160`, jam malam 22:00–06:00). |
+> | `room1/history/{epoch}` | Read (`limitToLast(144)`, interval 10 menit) | Sumber grafik 24 jam (144 titik) beserta min/max/rata-rata (**FR-04 / UC-07**). |
+> | `room1/events/{pushId}` | Read (ditulis otonom oleh ESP32 `Device`) | Daftar log kejadian (`temp_high`, `air_bad`, `night_presence`) dengan filter 24 jam & tipe (**FR-04**). |
 
 > 📄 **Dokumentasi Pendukung Lainnya:**
 > * Panduan Aplikasi Android: [`app/README.md`](app/README.md)

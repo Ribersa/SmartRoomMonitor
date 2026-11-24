@@ -4,11 +4,10 @@
 // ==============================================================================
 // config.h - Sentralisasi Konfigurasi Hardware, Pinout, dan Parameter SRS v0.9
 // Proyek: SmartRoomMonitor (RPL) - Firmware Produksi ESP32-S3 + Firebase RTDB
+// Diselaraskan penuh dengan Dokumen Pemodelan UML & SRS v0.9.
 // ==============================================================================
 
 // --- Opsi Fitur Radio ---
-// 0 = Produksi Wi-Fi + Firebase penuh (direkomendasikan agar radio 2.4 GHz stabil)
-// 1 = Aktifkan log serial tambahan untuk debugging
 #define ENABLE_BLE_DEBUG                0
 
 // --- Definisi Pinout Resmi ESP32-S3 DevKitC-1 N16R8 ---
@@ -27,12 +26,13 @@
 
 // --- Penjadwalan Waktu & Interval (ms) ---
 #define INTERVAL_SENSOR_EVAL_MS         2000UL    // Evaluasi sensor & aktuator lokal di Core 1
-#define INTERVAL_TELEMETRI_PUSH_MS      3000UL    // Kirim /room1/telemetry ke RTDB (FR-B02 <= 5s, NFR-01 <= 7s)
-#define INTERVAL_CONTROL_POLL_MS        2000UL    // Ambil /room1/controls dari RTDB (FR-06 mute <= 7s)
+#define INTERVAL_TELEMETRI_PUSH_MS      3000UL    // Kirim /room1/current ke RTDB (FR-B02 <= 5s, NFR-01 <= 7s)
+#define INTERVAL_CONTROL_POLL_MS        2000UL    // Ambil /room1/actuator & /room1/alarm/mute (FR-06 <= 7s)
 #define INTERVAL_THRESHOLD_POLL_MS      30000UL   // Sinkronisasi /room1/thresholds dari Firebase Console
-#define INTERVAL_HISTORY_LOG_MS         300000UL  // Simpan 1 titik /room1/history tiap 5 menit (FR-04)
+#define INTERVAL_HISTORY_LOG_MS         600000UL  // Simpan 1 titik /room1/history tiap 10 menit (144 titik/24 jam, UML UC-07)
 #define HISTORY_RETENTION_SEC           86400UL   // Retensi grafik 24 jam (86400 detik)
 #define WARMUP_ENS160_MS                180000UL  // Masa pemanasan 3 menit bebas alarm palsu (FR-03, NFR-06)
+#define WARMUP_BASELINE_START_MS        120000UL  // Mulai sampling baseline TVOC di menit ke-2 s.d. ke-3
 #define DEBOUNCE_EVENT_MS               60000UL   // Debounce pencatatan event bahaya 60 detik (FR-01)
 #define WIFI_RECONNECT_INTERVAL_MS      5000UL    // Coba sambung ulang Wi-Fi non-blocking (NFR-02)
 #define FIREBASE_TOKEN_REFRESH_MS       3000000UL // Refresh idToken Auth tiap 50 menit (exp 60 menit)
@@ -53,7 +53,9 @@
 #define SUHU_KIPAS_ON_DEFAULT                   31.0f // FR-02: Kipas ON saat suhu > 31.0 °C
 #define SUHU_KIPAS_HISTERESIS_DEFAULT           1.0f  // FR-02: Kipas OFF saat turun 1.0 °C (<= 30.0 °C)
 #define SUHU_ALERT_DEFAULT                      35.0f // FR-01: Peringatan suhu tinggi > 35.0 °C
-#define AMBANG_CAHAYA_GELAP_LUX_DEFAULT         50.0f // FR-08: < 50 Lux dianggap gelap
+#define AIR_DELTA_MODERATE_DEFAULT              80    // NFR-06: Kenaikan TVOC dari baseline kategori Sedang
+#define AIR_DELTA_BAD_DEFAULT                   160   // NFR-06 & UML UC-04: Kenaikan >= 160 kategori Buruk
+#define AMBANG_CAHAYA_GELAP_LUX_DEFAULT         40.0f // FR-07/08 & UML UC-05: < 40 Lux dianggap Gelap
 #define HISTERESIS_CAHAYA_EKSTERNAL_LUX_DEFAULT 200.0f // FR-08: +200 Lux eksternal baru dianggap terang
 #define TIMEOUT_KOSONG_LAMPU_SEC_DEFAULT        10    // FR-08: 10 detik kosong sebelum lampu padam
 #define JAM_MALAM_MULAI_DEFAULT                 22    // FR-05: Jam malam 22:00 WIB

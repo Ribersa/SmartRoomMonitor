@@ -1,68 +1,77 @@
 {
   "users": {
     "UID_STAFF_GANTI_DARI_AUTH": {
-      "role": "staff",
+      "role": "Staff",
       "name": "Staff Pengelola Ruangan"
     },
-    "UID_VISITOR_GANTI_DARI_AUTH": {
-      "role": "visitor",
+    "UID_PENGUNJUNG_GANTI_DARI_AUTH": {
+      "role": "Pengunjung",
       "name": "Pengunjung Ruangan"
     },
     "UID_DEVICE_GANTI_DARI_AUTH": {
-      "role": "device",
+      "role": "Device",
       "name": "ESP32-S3 Room1"
     }
   },
   "room1": {
-    "telemetry": {
+    "current": {
       "temperature": 28.6,
       "humidity": 58.2,
-      "humidity_label": "Nyaman",
-      "air_quality_label": "Memanaskan",
-      "air_quality_aqi": 1,
-      "air_quality_tvoc": 0,
-      "air_quality_eco2": 400,
-      "air_quality_warming_up": true,
-      "light_lux": 110.5,
-      "light_label": "Normal",
-      "presence_state": "tidak ada",
-      "presence_detected": false,
-      "alarm_active": false,
-      "alarm_reason": "none",
-      "night_mode_active": false,
-      "device_timestamp": 1764000000
+      "humidityLabel": "Nyaman",
+      "airDelta": 0,
+      "airLabel": "Memanaskan",
+      "airAqi": 1,
+      "airTvoc": 0,
+      "airEco2": 400,
+      "airWarmingUp": true,
+      "lightLux": 110.5,
+      "lightLabel": "Terang",
+      "presence": "tidak ada",
+      "presenceDetected": false,
+      "fanStatus": false,
+      "lampStatus": false,
+      "nightModeActive": false,
+      "timestamp": 1764000000000
     },
-    "controls": {
-      "fan_mode": "auto",
-      "fan_status": false,
-      "lamp_mode": "auto",
-      "lamp_status": false,
-      "alarm_muted": false
+    "actuator": {
+      "fanMode": "auto",
+      "lampMode": "auto"
+    },
+    "alarm": {
+      "active": false,
+      "buzzer": false,
+      "status": "normal",
+      "reason": "none",
+      "mute": false
     },
     "thresholds": {
-      "temp_fan_on": 31.0,
-      "temp_fan_hysteresis": 1.0,
-      "temp_alert": 35.0,
-      "light_dark_lux": 50.0,
-      "light_external_hysteresis_lux": 200.0,
-      "lamp_empty_timeout_sec": 10,
-      "night_start_hour": 22,
-      "night_end_hour": 6
+      "tempFanOn": 31.0,
+      "tempFanHysteresis": 1.0,
+      "tempAlert": 35.0,
+      "airDeltaModerate": 80,
+      "airDeltaBad": 160,
+      "lightDarkLux": 40.0,
+      "lightExternalHysteresisLux": 200.0,
+      "lampEmptyTimeoutSec": 10,
+      "nightStartHour": 22,
+      "nightEndHour": 6
     },
     "history": {
       "1764000000": {
-        "t": 28.6,
-        "h": 58.2,
-        "aqi": 1,
-        "lux": 110
+        "temperature": 28.6,
+        "humidity": 58.2,
+        "airDelta": 0,
+        "airAqi": 1,
+        "lightLux": 110.5,
+        "timestamp": 1764000000000
       }
     },
     "events": {
       "init_event": {
-        "timestamp": 1764000000,
+        "timestamp": 1764000000000,
         "type": "system_init",
         "severity": "info",
-        "message": "Inisialisasi struktur database SmartRoomMonitor v0.9"
+        "message": "Inisialisasi struktur database SmartRoomMonitor v0.9 (sinkron UML)"
       }
     }
   }
