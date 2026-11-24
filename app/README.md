@@ -53,7 +53,7 @@ Path utama yang dipakai aplikasi Android:
 
 ## 4. Cara Build
 
-Prasyarat: JDK 17+ (diuji JDK 21), Android SDK dengan `platforms;android-35` dan `build-tools;35.0.0`, Gradle 8.9.
+Prasyarat: JDK 17+ (diuji JDK 21) dan Android SDK dengan `platforms;android-35` dan `build-tools;35.0.0`. Gradle sudah dibungkus (`gradlew`, Gradle 8.9) — tidak perlu install Gradle.
 
 1. Isi `local.properties` di root repo:
    ```properties
@@ -62,7 +62,7 @@ Prasyarat: JDK 17+ (diuji JDK 21), Android SDK dengan `platforms;android-35` dan
 2. Taruh `google-services.json` dari Firebase Console di `app/` (di-ignore `.gitignore`, **jangan di-commit**).
 3. Build:
    ```powershell
-   gradle :app:assembleDebug
+   .\gradlew.bat :app:assembleDebug
    ```
    APK: `app/build/outputs/apk/debug/app-debug.apk`
 
