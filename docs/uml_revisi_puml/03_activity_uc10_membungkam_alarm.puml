@@ -1,0 +1,33 @@
+@startuml
+title 3.10 UC-10 Membungkam alarm (Revisi Path room1/alarm/mute)
+skinparam monochrome true
+skinparam shadowing false
+skinparam defaultFontName Calibri
+
+|Staff|
+start
+:Melihat banner alarm aktif\n(dari room1/alarm);
+:Menekan tombol MUTE\n(maksimal 2 tap, >= 48 dp);
+
+|Aplikasi|
+:Verifikasi peran Staff (UC-11)\ndari users/{uid}/role == "Staff";
+if (Peran == "Staff"?) then (Ya)
+  :Kirim perintah mute\nroom1/alarm/mute = true;
+else (Tidak)
+  :Tolak aksi\n(akses ditolak Firebase Rules);
+  stop
+endif
+
+|Perangkat (ESP32-S3 & Buzzer GPIO 6)|
+:Membaca room1/alarm/mute == true\nvia Core 0 polling;
+:Matikan sinyal buzzer GPIO 6\n(bunyi berhenti <= 7 detik);
+:Perbarui room1/alarm\n(buzzer = false, status = "dibungkam");
+
+|Aplikasi|
+:Terima onDataChange(room1/alarm);
+:Perbarui banner menjadi status dibungkam;
+
+|Staff|
+:Melihat konfirmasi alarm dibungkam;
+stop
+@enduml

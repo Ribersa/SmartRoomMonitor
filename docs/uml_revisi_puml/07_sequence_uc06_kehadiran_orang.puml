@@ -1,0 +1,42 @@
+@startuml
+title 4.6 UC-06 Memantau kehadiran orang (Revisi SRS v0.9 FR-05, FR-06, Hardware HLK-LD2410B)
+skinparam monochrome true
+skinparam shadowing false
+skinparam defaultFontName Calibri
+
+actor "Pengunjung / Staff" as User
+participant "Aplikasi" as App
+database "RealtimeDatabase" as DB
+participant "ESP32-S3 + HLK-LD2410B" as ESP
+
+User -> App : onDashboardOpened()
+activate App
+App -> DB : getReference("room1/current").addValueEventListener()
+App -> DB : getReference("room1/alarm").addValueEventListener()
+
+loop setiap 3-5 detik (UART1 256kbps kontinu di Core 1)
+  activate ESP
+  ESP -> ESP : bacaRadar3LayerValidator()\n-> presence ("tidak ada" / "bergerak" / "diam")
+  ESP -> ESP : cekJamMalamNTP(22:00 - 06:00 WIB)
+
+  alt jam 22:00-06:00 dan presence != "tidak ada"
+    ESP -> ESP : buzzer.alarmJamMalam() [lokal, tahan offline]
+    ESP -> DB : PATCH room1/alarm {active: true, buzzer: true, status: "aktif", reason: "night_presence"}
+    ESP -> DB : POST room1/events {timestamp, type: "night_presence", severity: "danger", message} [debounce 60 dtk]
+  end
+
+  ESP -> DB : PUT room1/current {presence, presenceDetected, nightModeActive, timestamp}
+  deactivate ESP
+
+  DB --> App : onDataChange(currentSnapshot, alarmSnapshot)
+  alt presence == "tidak ada"
+    App -> App : renderPresence("Tidak ada orang")
+  else jam 22:00-06:00 dan presence != "tidak ada"
+    App -> App : renderPresence(presence) + showBanner("Ada orang di jam malam")
+  else jam 06:00-22:00
+    App -> App : renderPresence(presence)
+  end
+end
+
+deactivate App
+@enduml

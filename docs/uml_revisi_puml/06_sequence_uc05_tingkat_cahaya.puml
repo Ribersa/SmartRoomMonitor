@@ -1,0 +1,31 @@
+@startuml
+title 4.5 UC-05 Memantau tingkat cahaya (Revisi Hardware BH1750)
+skinparam monochrome true
+skinparam shadowing false
+skinparam defaultFontName Calibri
+
+actor "Pengunjung / Staff" as User
+participant "Aplikasi" as App
+database "RealtimeDatabase" as DB
+participant "ESP32-S3 + BH1750" as ESP
+
+User -> App : onDashboardOpened()
+activate App
+App -> DB : getReference("room1/current").addValueEventListener()
+
+loop setiap 3-5 detik
+  activate ESP
+  ESP -> ESP : bacaLux() dari BH1750 (I2C 0x23)
+  ESP -> DB : PUT room1/current {lightLux, lightLabel, timestamp}
+  deactivate ESP
+
+  DB --> App : onDataChange(snapshot)
+  alt lightLux < 40
+    App -> App : renderLightStatus(lightLux, "Gelap")
+  else lightLux >= 40
+    App -> App : renderLightStatus(lightLux, "Terang")
+  end
+end
+
+deactivate App
+@enduml

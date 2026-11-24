@@ -1,0 +1,49 @@
+@startuml
+title 4.4 UC-04 Memantau kualitas udara (Revisi SRS v0.9 FR-03, NFR-06, Hardware ENS160)
+skinparam monochrome true
+skinparam shadowing false
+skinparam defaultFontName Calibri
+
+actor "Pengunjung / Staff" as User
+participant "Aplikasi" as App
+database "RealtimeDatabase" as DB
+participant "ESP32-S3 + ENS160" as ESP
+
+User -> App : onDashboardOpened()
+activate App
+App -> DB : getReference("room1/current").addValueEventListener()
+App -> DB : getReference("room1/alarm").addValueEventListener()
+
+loop setiap 3-5 detik (Core 1 & Core 0)
+  activate ESP
+  ESP -> ESP : bacaENS160() + kompensasi SHT30-D
+
+  alt masa pemanasan < 3 menit (NFR-06)
+    ESP -> ESP : airWarmingUp = true, airLabel = "Memanaskan", airDelta = 0
+  else pasca warm-up (>= 3 menit)
+    ESP -> ESP : hitung airDelta = TVOC - tvocBaseline
+    alt airDelta >= 160 atau AQI >= 4
+      ESP -> ESP : airLabel = "Buruk"\nbuzzer.alarmAQI() [lokal, tahan offline]
+      ESP -> DB : PATCH room1/alarm {active: true, buzzer: true, status: "aktif", reason: "air_bad"}
+      ESP -> DB : POST room1/events {timestamp, type: "air_bad", severity, message} [debounce 60 dtk]
+    else airDelta < 160 dan AQI <= 3
+      ESP -> ESP : airLabel = "Baik" / "Sedang"
+    end
+  end
+
+  ESP -> DB : PUT room1/current {airDelta, airLabel, airAqi, airWarmingUp, timestamp}
+  deactivate ESP
+
+  DB --> App : onDataChange(currentSnapshot)
+  alt airWarmingUp == true
+    App -> App : showLabel("Memanaskan") [tanpa peringatan]
+  else airLabel == "Buruk"
+    App -> App : showLabel("Buruk", airDelta) + showBanner()
+  else kondisi normal
+    App -> App : showLabel(airLabel, airDelta)
+  end
+end
+
+App --> User : label kualitas udara tampil
+deactivate App
+@enduml

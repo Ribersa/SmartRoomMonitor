@@ -1,0 +1,50 @@
+@startuml
+title 3.4 UC-04 Memantau kualitas udara (Revisi SRS v0.9 & Hardware ENS160)
+skinparam monochrome true
+skinparam shadowing false
+skinparam defaultFontName Calibri
+
+|Pengunjung / Staff|
+start
+:Buka dashboard;
+
+|Aplikasi|
+:addValueEventListener("room1/current")\n& addValueEventListener("room1/alarm");
+
+|ESP32-S3 + ENS160|
+:Baca TVOC, eCO2, AQI dari ENS160\n(kompensasi suhu & RH SHT30-D);
+if (Masa pemanasan < 3 menit?) then (Ya)
+  :airWarmingUp = true\nairLabel = "Memanaskan"\nairDelta = 0 (tanpa alarm);
+else (Tidak)
+  :Kunci baseline TVOC &\nhitung airDelta = TVOC - baseline;
+  if (airDelta >= 160 atau AQI >= 4?) then (Ya)
+    :airLabel = "Buruk";
+    :Bunyikan buzzer lokal (GPIO 6)\n[tetap aktif walau offline];
+    :Update room1/alarm (active=true, status="aktif")\n& catat event ke room1/events (debounce 60 dtk);
+  else (Tidak)
+    :Tetapkan airLabel = "Baik" / "Sedang";
+  endif
+endif
+:Kirim payload {airDelta, airLabel, airAqi,\nairWarmingUp, timestamp} ke room1/current;
+
+|Aplikasi|
+:Terima onDataChange(snapshot);
+if (now - timestamp > 15.000 ms?) then (Ya)
+  :Tampilkan banner "Perangkat offline"\n(data terakhir tetap tampil);
+else (Tidak)
+  :Sembunyikan banner offline;
+  if (airWarmingUp == true?) then (Ya)
+    :Tampilkan label "Memanaskan"\n(tanpa banner peringatan);
+  else (Tidak)
+    if (airLabel == "Buruk"?) then (Ya)
+      :Tampilkan label "Buruk" + airDelta\n& banner peringatan udara buruk;
+    else (Tidak)
+      :Tampilkan label "Baik" / "Sedang" + airDelta;
+    endif
+  endif
+endif
+
+|Pengunjung / Staff|
+:Membaca label kualitas udara;
+stop
+@enduml

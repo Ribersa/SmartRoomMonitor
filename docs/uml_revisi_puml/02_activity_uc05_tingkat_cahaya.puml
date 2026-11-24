@@ -1,0 +1,34 @@
+@startuml
+title 3.5 UC-05 Memantau tingkat cahaya (Revisi Hardware BH1750)
+skinparam monochrome true
+skinparam shadowing false
+skinparam defaultFontName Calibri
+
+|Pengunjung / Staff|
+start
+:Buka dashboard;
+
+|Aplikasi|
+:addValueEventListener("room1/current");
+
+|ESP32-S3 + BH1750|
+:Baca intensitas cahaya digital\ndari sensor BH1750 (I2C 0x23);
+:Tentukan lightLabel\n(< 40 lux = "Gelap", >= 40 lux = "Terang");
+:Kirim payload {lightLux, lightLabel, timestamp}\nke room1/current;
+
+|Aplikasi|
+if (now - timestamp > 15.000 ms?) then (Ya)
+  :Tampilkan banner "Perangkat offline",\nnilai lux terakhir tetap tampil;
+else (Tidak)
+  :Terima onDataChange(snapshot);
+  if (lightLux < 40 lux?) then (Ya)
+    :Tampilkan nilai lux,\nstatus "Gelap";
+  else (Tidak)
+    :Tampilkan nilai lux,\nstatus "Terang";
+  endif
+endif
+
+|Pengunjung / Staff|
+:Membaca nilai lux & status cahaya;
+stop
+@enduml

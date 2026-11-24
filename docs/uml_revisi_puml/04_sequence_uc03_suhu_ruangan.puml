@@ -1,0 +1,42 @@
+@startuml
+title 4.3 UC-03 Memantau suhu ruangan (Revisi SRS v0.9 FR-01, FR-06, NFR-03)
+skinparam monochrome true
+skinparam shadowing false
+skinparam defaultFontName Calibri
+
+actor "Pengunjung / Staff" as User
+participant "Aplikasi" as App
+database "RealtimeDatabase" as DB
+participant "ESP32-S3 + SHT30-D" as ESP
+
+User -> App : onDashboardOpened()
+activate App
+App -> DB : getReference("room1/current").addValueEventListener()
+App -> DB : getReference("room1/alarm").addValueEventListener()
+
+loop setiap 3-5 detik (Core 1 & Core 0)
+  activate ESP
+  ESP -> ESP : bacaSuhuDanRH() dari SHT30-D (I2C 0x44)
+  ESP -> DB : PUT room1/current {temperature, humidity, timestamp}
+
+  alt temperature > 35.0
+    ESP -> ESP : buzzer.alarmSuhuTinggi() [lokal, tahan offline]
+    ESP -> DB : PATCH room1/alarm {active: true, buzzer: true, status: "aktif", reason: "temp_high"}
+    ESP -> DB : POST room1/events {timestamp, type: "temp_high", severity: "danger", message} [debounce 60 dtk]
+  else temperature <= 35.0
+    ESP -> ESP : pertahankan status normal
+  end
+  deactivate ESP
+
+  DB --> App : onDataChange(currentSnapshot, alarmSnapshot)
+  App -> App : renderTemperature(temperature)
+
+  alt temperature > 35.0
+    App -> App : showBanner("Suhu tinggi > 35 C")
+  else temperature <= 35.0
+    App -> App : renderNormalState()
+  end
+end
+
+deactivate App
+@enduml
