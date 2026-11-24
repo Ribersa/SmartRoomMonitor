@@ -11,12 +11,31 @@ Sistem pemantauan dan otomatisasi kondisi ruangan **real-time** berbasis **ESP32
 
 Data dikirimkan secara kontinu via Wi-Fi ke **Firebase Realtime Database** dan divisualisasikan pada aplikasi mobile **Android Native (Kotlin + Jetpack Compose)**, lengkap dengan kontrol otomatis kipas (PWM MOSFET), saklar lampu adaptif (Relay), alarm jam malam (Buzzer), serta grafik riwayat kejadian 24 jam.
 
-> 📄 **Dokumentasi Lengkap:**
+> [!IMPORTANT]
+> ## 🔥 MULAI DI SINI — Kontrak Firebase untuk Aplikasi Android (SRS v0.9)
+> Pengembang aplikasi Android (**Kotlin + Jetpack Compose**) **cukup mengacu pada 3 berkas Firebase berikut** untuk membangun model data, autentikasi peran, dashboard, grafik 24 jam, dan kontrol perangkat:
+>
+> * **Skema JSON Resmi (Kontrak Field & Tipe Data):** [`firebase/schema-v0.9.json`](firebase/schema-v0.9.json)
+> * **Security Rules & Matriks Peran (`visitor` / `staff` / `device`):** [`firebase/database.rules.json`](firebase/database.rules.json)
+> * **Panduan Setup Firebase Console & Hak Akses:** [`firebase/README.md`](firebase/README.md)
+> * **Aturan Kerja AI Coding Agent untuk Repo Ini:** [`AGENTS.md`](AGENTS.md)
+>
+> **Ringkasan Path RTDB yang Dipakai Aplikasi:**
+> | Path Firebase RTDB | Akses Aplikasi | Kegunaan di Aplikasi Android |
+> |---|---|---|
+> | `users/{uid}/role` | Read (milik sendiri) | Menentukan peran `"visitor"` (read-only) atau `"staff"` (boleh kontrol & mute). |
+> | `room1/telemetry` | Read (live tiap 3–5 dtk) | Suhu, kelembapan, label udara (`Memanaskan`/`Baik`/`Sedang`/`Buruk`), lux, kehadiran (`tidak ada`/`bergerak`/`diam`), status alarm, dan `device_timestamp` (deteksi offline > 15 dtk). |
+> | `room1/controls` | Read semua; **Staff** Write `fan_mode`, `lamp_mode`, `alarm_muted` | Saklar mode kipas (`auto`/`on`/`off`), mode lampu (`auto`/`on`/`off`), tombol MUTE darurat (`<= 7 dtk`), serta baca status aktual `fan_status` & `lamp_status`. |
+> | `room1/thresholds` | Read-only (diubah via Firebase Console) | Menampilkan batas peringatan aktif (suhu > 35°C, kipas > 31°C, jam malam 22:00–06:00). |
+> | `room1/history/{epoch}` | Read (24 jam, interval 5 menit) | Sumber data grafik 24 jam (`t`, `h`, `aqi`, `lux`) beserta nilai min/max/rata-rata (**FR-04**). |
+> | `room1/events/{pushId}` | Read (terindeks `timestamp` & `type`) | Daftar log kejadian (`temp_high`, `air_bad`, `night_presence`) dengan filter 24 jam & tipe (**FR-04**). |
+
+> 📄 **Dokumentasi Pendukung Lainnya:**
+> * Panduan Aplikasi Android: [`app/README.md`](app/README.md)
+> * Dokumen SRS Resmi (Baseline): [`docs/SRS-SmartRoomMonitor-v0.9.md`](docs/SRS-SmartRoomMonitor-v0.9.md)
+> * Sinkronisasi Hardware & SRS v0.9: [`docs/sinkronisasi-sensor-srs.md`](docs/sinkronisasi-sensor-srs.md)
 > * Profil Tim & Pembagian Modul: [`PROFIL_TIM.md`](PROFIL_TIM.md)
-> * Dokumen SRS Resmi: [`docs/SRS-SmartRoomMonitor-v0.9.md`](docs/SRS-SmartRoomMonitor-v0.9.md)
-> * Blueprint Wiring Breadboard: [`docs/blueprint-esp32s3-prototipe.md`](docs/blueprint-esp32s3-prototipe.md)
-> * Sinkronisasi Spesifikasi & JSON: [`docs/sinkronisasi-sensor-srs.md`](docs/sinkronisasi-sensor-srs.md)
-> * Daftar Belanja & Anggaran Komponen: [`docs/daftar kebutuhan.pdf`](docs/daftar%20kebutuhan.pdf)
+> * Panduan Pinout & Wiring ESP32-S3: [`docs/lembar_panduan_pinout_dan_wiring_esp32s3.md`](docs/lembar_panduan_pinout_dan_wiring_esp32s3.md)
 
 ---
 
@@ -96,6 +115,7 @@ Struktur data resmi dan aturan keamanan (*Security Rules* berbasis peran) tersed
 ```text
 SmartRoomMonitor/
 ├── .gitignore                              # Proteksi kredensial (secrets.h, google-services.json)
+├── AGENTS.md                               # Aturan main & kontrak arsitektur untuk AI coding agents
 ├── PROFIL_TIM.md                           # Profil tim & pembagian modul SRS v0.9
 ├── README.md                               # Dokumentasi utama proyek
 ├── firebase/                               # Kontrak JSON v0.9, database.rules.json & panduan setup
