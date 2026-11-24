@@ -1,6 +1,6 @@
 # Aplikasi Android — SmartRoomMonitor
 
-Direktori ini memuat kode sumber aplikasi mobile Android berbasis **Kotlin + Jetpack Compose** yang terhubung langsung ke **Firebase Realtime Database** dan **Firebase Authentication** sesuai baseline **SRS v0.9** dan **Pemodelan UML**.
+Direktori ini memuat kode sumber aplikasi mobile Android berbasis **Kotlin + Jetpack Compose** yang terhubung langsung ke **Firebase Realtime Database** dan **Firebase Authentication** sesuai baseline **SRS v1.0** dan **Pemodelan UML**.
 
 ---
 
@@ -35,7 +35,7 @@ Path utama yang dipakai aplikasi Android:
 
 ---
 
-## 3. Daftar Fitur Aplikasi (Sesuai SRS v0.9 & UML UC-01 s.d. UC-12)
+## 3. Daftar Fitur Aplikasi (Sesuai SRS v1.0 & UML UC-01 s.d. UC-12)
 
 1. **Autentikasi & Peran (FR-B01 / UC-01, UC-02, UC-11):** Login email & password. Peran `"Pengunjung"` hanya membaca, sedangkan `"Staff"` dapat mengontrol kipas, lampu, dan membungkam alarm.
 2. **Dashboard & Status Offline (FR-B02 / UC-12):** Pembaruan real-time tiap <= 5 detik. Jika `System.currentTimeMillis() - timestamp > 15_000`, tampilkan banner *"Perangkat offline"* sambil mempertahankan data terakhir.
@@ -47,3 +47,25 @@ Path utama yang dipakai aplikasi Android:
 8. **Bunyi Peringatan & Mute Darurat (FR-06 / UC-10 — M3 Deswiryawan):** Tombol MUTE besar (`>= 48 dp`, maks. 2 tap) untuk Staff yang menulis `room1/alarm/mute = true` (berhenti dalam <= 7 detik).
 9. **Tingkat Cahaya & Label (FR-07 / UC-05 — M4 Fattih):** Menampilkan `lightLux` dan `lightLabel` (`Gelap` < 40 lux, `Terang` >= 40 lux).
 10. **Kontrol Lampu (FR-08 / UC-09 — M4 Fattih):** Pilihan mode `Otomatis` (`auto`) / `Selalu ON` (`on`) / `Selalu OFF` (`off`) di `room1/actuator/lampMode`, status fisik dari `room1/current/lampStatus`.
+
+
+---
+
+## 4. Cara Build
+
+Prasyarat: JDK 17+ (diuji JDK 21), Android SDK dengan `platforms;android-35` dan `build-tools;35.0.0`, Gradle 8.9.
+
+1. Isi `local.properties` di root repo:
+   ```properties
+   sdk.dir=C\:\\Android\\sdk
+   ```
+2. Taruh `google-services.json` dari Firebase Console di `app/` (di-ignore `.gitignore`, **jangan di-commit**).
+3. Build:
+   ```powershell
+   gradle :app:assembleDebug
+   ```
+   APK: `app/build/outputs/apk/debug/app-debug.apk`
+
+Tanpa `google-services.json`, aplikasi tetap ter-build dan layar masuk tampil, tetapi login akan gagal dengan pesan kredensial salah karena Firebase belum terinisialisasi.
+
+Struktur kode: `data/` (auth, rtdb, local Room), `domain/` (model, usecase), `ui/` (login, dashboard, navigation, session, theme), `di/AppContainer.kt` untuk manual DI.

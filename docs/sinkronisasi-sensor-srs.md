@@ -1,15 +1,15 @@
-# Sinkronisasi Spesifikasi Sensor Hardware, SRS v0.9 & UML
+# Sinkronisasi Spesifikasi Sensor Hardware, SRS v1.0 & UML
 **Proyek:** SmartRoomMonitor (Aplikasi Android & Node Sensor IoT ESP32-S3)  
-**Baseline Dokumen:** [`SRS-SmartRoomMonitor-v0.9.md`](SRS-SmartRoomMonitor-v0.9.md) & Dokumen Pemodelan UML SmartRoomMonitor  
+**Baseline Dokumen:** [`SRS-SmartRoomMonitor-v1.0.md`](SRS-SmartRoomMonitor-v1.0.md) & Dokumen Pemodelan UML SmartRoomMonitor  
 **Kontrak Backend Resmi:** [`firebase/schema-v0.9.json`](../firebase/schema-v0.9.json) & [`firebase/database.rules.json`](../firebase/database.rules.json)
 
 ---
 
-## 1. Matriks Sinkronisasi: SRS v0.9, UML & Hardware Fisik Asli
+## 1. Matriks Sinkronisasi: SRS v1.0, UML & Hardware Fisik Asli
 
 *(Catatan: Menggantikan asumsi pemodelan awal DHT22/MQ-135/LDR/PIR pada UML Hal. 39 dengan hardware fisik aktual.)*
 
-| ID (SRS v0.9) | Use Case UML | Sensor / Aktuator Fisik | Path Firebase & Logika Firmware | PIC Modul |
+| ID (SRS v1.0) | Use Case UML | Sensor / Aktuator Fisik | Path Firebase & Logika Firmware | PIC Modul |
 |---|---|---|---|---|
 | **FR-01** | UC-03 | **Sensirion SHT30-D** (I2C `0x44`) + Buzzer | `room1/current/temperature`. Jika `> tempAlert` (`35.0 °C`) → ESP32 bunyikan buzzer lokal, set `room1/alarm`, catat `room1/events` (`temp_high`, debounce 60 dtk). | M1 Syakir |
 | **FR-02** | UC-08 | **Driver MOSFET D4184 (GPIO 7)** + Kipas 5V | Staff tulis `room1/actuator/fanMode` (`auto`/`on`/`off`). ESP32 terapkan histeresis (`> 31 °C` ON, `<= 30 °C` OFF) dan kirim `room1/current/fanStatus`. | M1 Syakir |

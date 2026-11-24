@@ -1,3 +1,6 @@
+> [!WARNING]
+> **DOKUMEN DIARSIPKAN.** Versi berlaku adalah [SRS-SmartRoomMonitor-v1.0.md](SRS-SmartRoomMonitor-v1.0.md). Berkas ini dipertahankan hanya untuk riwayat.
+
 # SOFTWARE REQUIREMENTS SPECIFICATION
 ## SmartRoomMonitor
 ### Aplikasi Android untuk Memantau dan Mengatur Kondisi Ruangan

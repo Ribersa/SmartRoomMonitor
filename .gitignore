@@ -42,3 +42,7 @@ compile_commands.json
 Thumbs.db
 ehthumbs.db
 desktop.ini
+
+# --- Toolchain lokal ---
+arduino-cli.exe
+/SRS-SmartRoomMonitor-*.docx

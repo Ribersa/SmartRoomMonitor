@@ -6,7 +6,7 @@ Dokumen ini adalah panduan wajib bagi setiap AI coding agent (Antigravity, Codex
 
 ## 1. Sumber Kebenaran Tunggal (Single Source of Truth)
 
-1. **Baseline Spesifikasi Resmi:** **`docs/SRS-SmartRoomMonitor-v0.9.md`** (8 FR, 8 NFR, 2 Shared FR) yang diselaraskan dengan **Dokumen Pemodelan UML SmartRoomMonitor**.
+1. **Baseline Spesifikasi Resmi:** **`docs/SRS-SmartRoomMonitor-v1.0.md`** (8 FR, 8 NFR, 2 Shared FR) yang diselaraskan dengan **Dokumen Pemodelan UML SmartRoomMonitor**.
    - **DILARANG** merujuk atau menyalin penomoran/pembagian tugas dari SRS v0.8.
 2. **Kontrak Data Backend Firebase (NFR-05):**
    - Skema JSON: **`firebase/schema-v0.9.json`**
@@ -15,7 +15,7 @@ Dokumen ini adalah panduan wajib bagi setiap AI coding agent (Antigravity, Codex
 
 ---
 
-## 2. Pembagian Modul & Ruang Lingkup MVP (SRS v0.9)
+## 2. Pembagian Modul & Ruang Lingkup MVP (SRS v1.0)
 
 | Modul | PIC | Kebutuhan Fungsional & Non-Fungsional |
 |---|---|---|

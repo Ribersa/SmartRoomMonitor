@@ -5,14 +5,14 @@
 ![Kotlin](https://img.shields.io/badge/Language-Kotlin_Jetpack_Compose-purple?logo=kotlin)
 ![Firebase](https://img.shields.io/badge/Backend-Firebase_RTDB_%26_Auth-orange?logo=firebase)
 ![Course](https://img.shields.io/badge/Course-Rekayasa_Perangkat_Lunak_(RPL)-lightgrey)
-![Status](https://img.shields.io/badge/Status-SRS_v0.9_Approved-brightgreen)
+![Status](https://img.shields.io/badge/Status-SRS_v1.0_Approved-brightgreen)
 
 Sistem pemantauan dan otomatisasi kondisi ruangan **real-time** berbasis **ESP32-S3**: memantau suhu dan kelembapan presisi (**Sensirion SHT30-D**), kualitas udara multi-parameter AQI/TVOC/eCO2 (**ScioSense ENS160**), intensitas cahaya ruangan (**Rohm BH1750**), dan pelacakan keberadaan manusia diam maupun bergerak (**Radar mmWave 24 GHz HLK-LD2410**). 
 
 Data dikirimkan secara kontinu via Wi-Fi ke **Firebase Realtime Database** dan divisualisasikan pada aplikasi mobile **Android Native (Kotlin + Jetpack Compose)**, lengkap dengan kontrol otomatis kipas (PWM MOSFET), saklar lampu adaptif (Relay), alarm jam malam (Buzzer), serta grafik riwayat kejadian 24 jam.
 
 > [!IMPORTANT]
-> ## 🔥 MULAI DI SINI — Kontrak Firebase untuk Aplikasi Android (SRS v0.9 & Sinkron UML)
+> ## 🔥 MULAI DI SINI — Kontrak Firebase untuk Aplikasi Android (SRS v1.0 & Sinkron UML)
 > Pengembang aplikasi Android (**Kotlin + Jetpack Compose**) **cukup mengacu pada 3 berkas Firebase berikut** untuk membangun model data, autentikasi peran, dashboard, grafik 24 jam, dan kontrol perangkat:
 >
 > * **Skema JSON Resmi (Kontrak Field & Tipe Data):** [`firebase/schema-v0.9.json`](firebase/schema-v0.9.json)
@@ -33,14 +33,14 @@ Data dikirimkan secara kontinu via Wi-Fi ke **Firebase Realtime Database** dan d
 
 > 📄 **Dokumentasi Pendukung Lainnya:**
 > * Panduan Aplikasi Android: [`app/README.md`](app/README.md)
-> * Dokumen SRS Resmi (Baseline): [`docs/SRS-SmartRoomMonitor-v0.9.md`](docs/SRS-SmartRoomMonitor-v0.9.md)
-> * Sinkronisasi Hardware & SRS v0.9: [`docs/sinkronisasi-sensor-srs.md`](docs/sinkronisasi-sensor-srs.md)
+> * Dokumen SRS Resmi (Baseline): [`docs/SRS-SmartRoomMonitor-v1.0.md`](docs/SRS-SmartRoomMonitor-v1.0.md)
+> * Sinkronisasi Hardware & SRS v1.0: [`docs/sinkronisasi-sensor-srs.md`](docs/sinkronisasi-sensor-srs.md)
 > * Profil Tim & Pembagian Modul: [`PROFIL_TIM.md`](PROFIL_TIM.md)
 > * Panduan Pinout & Wiring ESP32-S3: [`docs/lembar_panduan_pinout_dan_wiring_esp32s3.md`](docs/lembar_panduan_pinout_dan_wiring_esp32s3.md)
 
 ---
 
-## ✨ Fitur Utama (Sesuai SRS v0.9)
+## ✨ Fitur Utama (Sesuai SRS v1.0)
 
 Sistem dirancang berdasarkan **8 Kebutuhan Fungsional (FR)** dan **8 Kebutuhan Non-Fungsional (NFR)** yang dibagi rata ke seluruh anggota tim:
 
@@ -117,14 +117,14 @@ Struktur data resmi dan aturan keamanan (*Security Rules* berbasis peran) tersed
 SmartRoomMonitor/
 ├── .gitignore                              # Proteksi kredensial (secrets.h, google-services.json)
 ├── AGENTS.md                               # Aturan main & kontrak arsitektur untuk AI coding agents
-├── PROFIL_TIM.md                           # Profil tim & pembagian modul SRS v0.9
+├── PROFIL_TIM.md                           # Profil tim & pembagian modul SRS v1.0
 ├── README.md                               # Dokumentasi utama proyek
 ├── firebase/                               # Kontrak JSON v0.9, database.rules.json & panduan setup
 │   ├── schema-v0.9.json
 │   ├── database.rules.json
 │   └── README.md
-├── docs/                                   # Spesifikasi SRS v0.9, wiring, & protokol uji sensor
-│   ├── SRS-SmartRoomMonitor-v0.9.md
+├── docs/                                   # Spesifikasi SRS v1.0, wiring, & protokol uji sensor
+│   ├── SRS-SmartRoomMonitor-v1.0.md
 │   ├── sinkronisasi-sensor-srs.md
 │   ├── blueprint-esp32s3-prototipe.md
 │   ├── lembar_panduan_pinout_dan_wiring_esp32s3.md
@@ -139,7 +139,7 @@ SmartRoomMonitor/
 
 ---
 
-## 👥 Tim Pengembang (Sesuai SRS v0.9)
+## 👥 Tim Pengembang (Sesuai SRS v1.0)
 
 | Nama | NIM | Peran & Modul |
 |---|---|---|

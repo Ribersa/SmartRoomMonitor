@@ -7,9 +7,9 @@
 
 ---
 
-## 1. Anggota Tim & Pembagian Tugas (Sesuai SRS v0.9)
+## 1. Anggota Tim & Pembagian Tugas (Sesuai SRS v1.0)
 
-| No | Nama | NIM | Peran Tim | Modul Tanggung Jawab (SRS v0.9) |
+| No | Nama | NIM | Peran Tim | Modul Tanggung Jawab (SRS v1.0) |
 |---|---|---|---|---|
 | 1 | **Deswiryawan Saragih** | 241111008 | Product Owner / M3 Lead | **FR-05** (Kehadiran Jam Malam), **FR-06** (Bunyi Peringatan & Mute Darurat), **NFR-05** (Keterpeliharaan), **NFR-06** (Akurasi Data) |
 | 2 | **Akhmad Zakariya** | 241111010 | Scrum Master / M2 Lead | **FR-03** (Kualitas Udara & Warning), **FR-04** (Grafik 24 Jam & Event Log), **NFR-03** (Keamanan Akses), **NFR-04** (Aturan Firebase) |
@@ -38,7 +38,7 @@ Sistem **SmartRoomMonitor** membaca parameter suhu dan kelembapan (SHT30-D), kua
 
 ## 3. Target MVP & Definisi Selesai (Definition of Done)
 
-* [x] **Spesifikasi Software Disahkan:** Dokumen SRS v0.9 lengkap (8 FR, 8 NFR, batasan sistem).
+* [x] **Spesifikasi Software Lengkap:** Dokumen SRS v1.0 (8 FR, 8 NFR, 2 FR bersama, kontrak data Bab 7, batasan sistem) — menunggu persetujuan.
 * [x] **Skematik & Desain Elektrik Selesai:** Blueprint breadboard ESP32-S3 dan optimasi Sensirion SHT30-D.
 * [x] **Pengadaan Komponen Terinci:** Daftar belanja Shopee tervalidasi dan siap rakit.
 * [ ] **Sprint 1 (Hardware & Firmware Proof-of-Concept):** Seluruh 4 sensor terbaca di serial monitor ESP32-S3 dan data terkirim ke Firebase node `room1/telemetry`.

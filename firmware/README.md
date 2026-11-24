@@ -42,7 +42,7 @@ Direktori ini memuat kode program mikrokontroler **ESP32-S3** untuk membaca sens
 
 ## 3. Struktur Firmware Produksi & Pengujian
 
-1. **Firmware Produksi Dual-Core + Firebase RTDB ([`smartroom_esp32s3_firebase/`](smartroom_esp32s3_firebase/)) — *Utama untuk SRS v0.9***:
+1. **Firmware Produksi Dual-Core + Firebase RTDB ([`smartroom_esp32s3_firebase/`](smartroom_esp32s3_firebase/)) — *Utama untuk SRS v1.0***:
    * Arsitektur FreeRTOS Dual-Core: **Core 1** khusus sensor/radar 256 kbps/aktuator lokal (*offline failsafe*), **Core 0** khusus Wi-Fi auto-reconnect, NTP WIB (`UTC+7`), dan sinkronisasi Firebase Auth REST + RTDB HTTPS.
    * Library yang dibutuhkan di Arduino IDE:
      * `ArduinoJson` (v7.x oleh Benoit Blanchon)

@@ -1,10 +1,10 @@
-# Konfigurasi Backend Firebase — SmartRoomMonitor (SRS v0.9 & Sinkron UML)
+# Konfigurasi Backend Firebase — SmartRoomMonitor (SRS v1.0 & Sinkron UML)
 
-Direktori ini berisi kontrak skema JSON resmi (`schema-v0.9.json`) dan aturan keamanan Firebase Realtime Database (`database.rules.json`) yang diselaraskan penuh dengan **dokumen Pemodelan UML SmartRoomMonitor** sekaligus mematuhi **SRS v0.9** (**FR-B01, FR-B02, FR-01 s.d. FR-08, NFR-03, NFR-04, NFR-05, NFR-06**).
+Direktori ini berisi kontrak skema JSON resmi (`schema-v0.9.json`) dan aturan keamanan Firebase Realtime Database (`database.rules.json`) yang diselaraskan penuh dengan **dokumen Pemodelan UML SmartRoomMonitor** sekaligus mematuhi **SRS v1.0** (**FR-B01, FR-B02, FR-01 s.d. FR-08, NFR-03, NFR-04, NFR-05, NFR-06**).
 
 ---
 
-## Catatan Penyelarasan UML vs SRS v0.9
+## Catatan Penyelarasan UML vs SRS v1.0
 
 - **Path & Nama Field Mengikuti UML:** `users/{uid}/role` (`"Staff"` / `"Pengunjung"` / `"Device"`), `room1/current`, `room1/actuator/{fanMode, lampMode}`, `room1/alarm/{active, buzzer, status, reason, mute}`, `room1/history/{epochSec}` (interval 10 menit = 144 titik per 24 jam untuk `limitToLast(144)`), dan `room1/events`.
 - **Tanggung Jawab Penulisan Aman (Kepatuhan FR-06 & NFR-03):** Penulisan `room1/events` dan pengaktifan `room1/alarm/{active, buzzer, status, reason}` dikerjakan secara otonom oleh **ESP32-S3 (`Device`)**, bukan oleh Aplikasi Android. Ini menjamin:
