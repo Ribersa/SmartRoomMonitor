@@ -33,6 +33,9 @@ Data dikirimkan secara kontinu via Wi-Fi ke **Firebase Realtime Database** dan d
 
 > 📄 **Dokumentasi Pendukung Lainnya:**
 > * Panduan Aplikasi Android: [`app/README.md`](app/README.md)
+> * PRD (6 fitur / 3 fase): [`docs/prd.md`](docs/prd.md)
+> * Daftar Task Android: [`docs/tasks.md`](docs/tasks.md)
+> * Spesifikasi UI & Prototipe: [`tampilan UI-refined/ui-spec.md`](tampilan%20UI-refined/ui-spec.md)
 > * Dokumen SRS Resmi (Baseline): [`docs/SRS-SmartRoomMonitor-v1.0.md`](docs/SRS-SmartRoomMonitor-v1.0.md)
 > * Sinkronisasi Hardware & SRS v1.0: [`docs/sinkronisasi-sensor-srs.md`](docs/sinkronisasi-sensor-srs.md)
 > * Profil Tim & Pembagian Modul: [`PROFIL_TIM.md`](PROFIL_TIM.md)
@@ -119,23 +122,82 @@ SmartRoomMonitor/
 ├── AGENTS.md                               # Aturan main & kontrak arsitektur untuk AI coding agents
 ├── PROFIL_TIM.md                           # Profil tim & pembagian modul SRS v1.0
 ├── README.md                               # Dokumentasi utama proyek
+├── gradlew / gradlew.bat                   # Gradle wrapper 8.9 (tanpa install Gradle)
+├── settings.gradle.kts / build.gradle.kts  # Konfigurasi build root
+├── gradle/libs.versions.toml               # Version catalog (AGP, Kotlin, Compose, Firebase, Room)
 ├── firebase/                               # Kontrak JSON v0.9, database.rules.json & panduan setup
 │   ├── schema-v0.9.json
 │   ├── database.rules.json
 │   └── README.md
-├── docs/                                   # Spesifikasi SRS v1.0, wiring, & protokol uji sensor
-│   ├── SRS-SmartRoomMonitor-v1.0.md
+├── docs/                                   # Spesifikasi, PRD, task, wiring, & protokol uji sensor
+│   ├── SRS-SmartRoomMonitor-v1.0.md        # Baseline resmi (Bab 7 kontrak data)
+│   ├── SRS-SmartRoomMonitor-v1.0.docx      # Versi cetak + Lampiran C diagram UML
+│   ├── prd.md                              # PRD 6 fitur / 3 fase
+│   ├── tasks.md                            # 50 task dengan kondisi selesai
 │   ├── sinkronisasi-sensor-srs.md
 │   ├── blueprint-esp32s3-prototipe.md
 │   ├── lembar_panduan_pinout_dan_wiring_esp32s3.md
-│   └── Lembar_Metrik_dan_Protokol_Pengujian_SmartRoomMonitor.docx
+│   └── uml_revisi_puml/                    # Sumber PlantUML + hasil render PNG/SVG
+├── tools/
+│   └── build-firmware.ps1                  # Compile firmware via arduino-cli
 ├── firmware/                               # Kode ESP32-S3 (Produksi Firebase & Uji Modular)
 │   ├── smartroom_esp32s3_firebase/         # Firmware produksi Dual-Core + Firebase RTDB
 │   ├── tests/                              # Skrip uji 01 s.d. 09 (termasuk BLE modular)
 │   └── README.md
-└── app/                                    # Aplikasi Android (Kotlin + Jetpack Compose)
-    └── README.md
+├── app/                                    # Aplikasi Android (Kotlin + Jetpack Compose)
+│   ├── src/main/java/com/smartroommonitor/ # data / domain / ui / di
+│   ├── src/main/res/font/                  # Plus Jakarta Sans (self-host)
+│   ├── schemas/                            # Room schema export
+│   ├── build.gradle.kts
+│   └── README.md
+└── tampilan UI-refined/                    # Prototipe UI 31 layar + spesifikasi token
+    ├── ui-spec.md                          # Token light/dark, komponen, matriks layar
+    ├── prototype/                          # index.html + style.css + app.js (interaktif)
+    ├── png/                                # 31 layar 390x844 @2x
+    └── tools/render.js                     # Render ulang via Chrome DevTools Protocol
 ```
+
+---
+
+## 📱 Menjalankan Aplikasi Android
+
+Aplikasi sudah jadi: login, dashboard 5 metrik live, peringatan + MUTE, kontrol kipas/lampu, grafik 24 jam dengan chip expand, event log, profil, dan tema Terang/Gelap/Ikut sistem.
+
+**Prasyarat:** JDK 17+ (diuji JDK 21) dan Android SDK dengan `platforms;android-35` + `build-tools;35.0.0`.
+
+1. **Firebase** — ikuti [`firebase/README.md`](firebase/README.md): aktifkan Auth Email/Password, buat akun `device@`/`staff@`/`pengunjung@`, impor `schema-v0.9.json`, ganti placeholder UID dengan UID asli (`role` = `Device`/`Staff`/`Pengunjung`), lalu publish `database.rules.json`.
+2. **`google-services.json`** — unduh dari Firebase Console (Android app, package `com.smartroommonitor`), taruh di `app/`. File ini di-ignore dan **tidak boleh di-commit** (NFR-04).
+3. **`local.properties`** di root:
+   ```properties
+   sdk.dir=C\:\\path\\ke\\Android\\sdk
+   ```
+4. **Build:**
+   ```powershell
+   .\gradlew.bat :app:assembleDebug
+   ```
+   APK: `app/build/outputs/apk/debug/app-debug.apk`
+
+Tanpa `google-services.json`, aplikasi tetap ter-build dan layar masuk tampil, tetapi login akan gagal karena Firebase belum terinisialisasi.
+
+**Uji cepat yang disarankan:** login `staff@` (tombol MUTE terlihat) vs `pengunjung@` (MUTE dan kontrol disembunyikan), matikan ESP32 (banner "Perangkat offline" muncul ≤20 detik), tekan MUTE saat alarm aktif (buzzer berhenti ≤7 detik).
+
+---
+
+## 🔧 Build Firmware
+
+```powershell
+# sekali saja: pasang core + library
+.\arduino-cli.exe core install esp32:esp32 --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+.\arduino-cli.exe lib install "ArduinoJson" "Adafruit SHT31 Library" "DFRobot_ENS160" "BH1750" "ld2410"
+
+# salin template kredensial, lalu isi
+Copy-Item firmware\smartroom_esp32s3_firebase\secrets.h.example firmware\smartroom_esp32s3_firebase\secrets.h
+
+# compile
+powershell -File tools\build-firmware.ps1
+```
+
+FQBN: `esp32:esp32:esp32s3` dengan PSRAM OPI, Flash 16M, Partition `app3M_fat9M_16MB`. Hasil terakhir: 1.157.204 byte (36% flash), RAM 52.732 byte (16%).
 
 ---
 
