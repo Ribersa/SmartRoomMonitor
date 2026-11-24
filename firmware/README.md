@@ -40,15 +40,18 @@ Direktori ini memuat kode program mikrokontroler **ESP32-S3** untuk membaca sens
 
 ---
 
-## 3. Opsi Firmware
+## 3. Struktur Firmware Produksi & Pengujian
 
-1. **C++ (PlatformIO / Arduino Core) — *Direkomendasikan untuk Produksi Tugas***:
-   * Menggunakan library:
-     * `Firebase-ESP-Client` by Mobizt
-     * `ClosedCube SHT31D` atau `Adafruit SHT31` (kompatibel SHT30)
-     * `ScioSense ENS160`
-     * `hp-BH1750`
-     * `ld2410` by ncmreynolds
-2. **ESPHome (Alternatif Pengujian Cepat)**:
-   * File konfigurasi siap pakai tersedia di [`sensor-ruangan.yaml`](sensor-ruangan.yaml).
-   * Kredensial diisi melalui template [`secrets.yaml.example`](secrets.yaml.example).
+1. **Firmware Produksi Dual-Core + Firebase RTDB ([`smartroom_esp32s3_firebase/`](smartroom_esp32s3_firebase/)) — *Utama untuk SRS v0.9***:
+   * Arsitektur FreeRTOS Dual-Core: **Core 1** khusus sensor/radar 256 kbps/aktuator lokal (*offline failsafe*), **Core 0** khusus Wi-Fi auto-reconnect, NTP WIB (`UTC+7`), dan sinkronisasi Firebase Auth REST + RTDB HTTPS.
+   * Library yang dibutuhkan di Arduino IDE:
+     * `ArduinoJson` (v7.x oleh Benoit Blanchon)
+     * `Adafruit SHT31` (kompatibel SHT30-D pada `0x44`)
+     * `DFRobot_ENS160` (pada `0x53`)
+     * `BH1750` (oleh Christopher Laws pada `0x23`)
+     * `ld2410` (oleh ncmreynolds pada UART1 GPIO 17/18)
+   * Salin `smartroom_esp32s3_firebase/secrets.h.example` menjadi `secrets.h` sebelum *compile* (`secrets.h` diabaikan oleh `.gitignore` sesuai **NFR-04**).
+2. **Firmware Uji Modular Lokal BLE ([`tests/09_uji_integrasi_modular_ble/`](tests/09_uji_integrasi_modular_ble/))**:
+   * Versi pengujian dan kalibrasi sensor/aktuator langsung via Bluetooth Low Energy 5.0 tanpa internet.
+3. **ESPHome (Alternatif Pengujian Cepat)**:
+   * File konfigurasi tersedia di [`sensor-ruangan.yaml`](sensor-ruangan.yaml) dengan template [`secrets.yaml.example`](secrets.yaml.example).

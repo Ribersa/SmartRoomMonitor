@@ -5,6 +5,8 @@
 
 # --- Kredensial & Secrets (PENTING: Jangan di-commit!) ---
 secrets.yaml
+secrets.h
+**/secrets.h
 google-services.json
 *.keystore
 *.jks

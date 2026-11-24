@@ -1,0 +1,57 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "users": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": false
+      }
+    },
+    "room1": {
+      ".read": "auth != null && root.child('users').child(auth.uid).child('role').exists()",
+      "telemetry": {
+        ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'device'",
+        ".validate": "newData.hasChildren(['temperature', 'humidity', 'air_quality_aqi', 'light_lux', 'presence_state', 'device_timestamp'])"
+      },
+      "controls": {
+        "fan_mode": {
+          ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'staff'",
+          ".validate": "newData.isString() && (newData.val() === 'auto' || newData.val() === 'on' || newData.val() === 'off')"
+        },
+        "lamp_mode": {
+          ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'staff'",
+          ".validate": "newData.isString() && (newData.val() === 'auto' || newData.val() === 'on' || newData.val() === 'off')"
+        },
+        "alarm_muted": {
+          ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'staff' || root.child('users').child(auth.uid).child('role').val() === 'device')",
+          ".validate": "newData.isBoolean()"
+        },
+        "fan_status": {
+          ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'device'",
+          ".validate": "newData.isBoolean()"
+        },
+        "lamp_status": {
+          ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'device'",
+          ".validate": "newData.isBoolean()"
+        }
+      },
+      "thresholds": {
+        ".write": false
+      },
+      "history": {
+        "$epoch": {
+          ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'device'",
+          ".validate": "newData.hasChildren(['t', 'h', 'aqi', 'lux'])"
+        }
+      },
+      "events": {
+        ".indexOn": ["timestamp", "type"],
+        "$eventId": {
+          ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'device'",
+          ".validate": "newData.hasChildren(['timestamp', 'type', 'severity', 'message'])"
+        }
+      }
+    }
+  }
+}

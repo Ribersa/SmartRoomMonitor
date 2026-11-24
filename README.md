@@ -82,52 +82,12 @@ Sistem dirancang berdasarkan **8 Kebutuhan Fungsional (FR)** dan **8 Kebutuhan N
 
 ---
 
-## 🗄️ Standarisasi Skema Data Firebase (NFR-07)
+## 🗄️ Standarisasi Skema Data Firebase v0.9 (NFR-05)
 
-Struktur data disepakati bersama antara pengembang firmware dan aplikasi Android:
-
-```json
-{
-  "room1": {
-    "telemetry": {
-      "temperature": 28.6,
-      "humidity": 58.2,
-      "humidity_label": "Nyaman",
-      "air_quality_label": "Baik",
-      "air_quality_aqi": 2,
-      "air_quality_tvoc": 80,
-      "air_quality_eco2": 440,
-      "light_lux": 110,
-      "presence_state": "diam",
-      "device_timestamp": 1729015000
-    },
-    "controls": {
-      "fan_mode": "auto",
-      "fan_status": false,
-      "lamp_mode": "auto",
-      "lamp_status": false,
-      "alarm_muted": false
-    },
-    "thresholds": {
-      "temp_fan_on": 31.0,
-      "temp_fan_off": 30.0,
-      "temp_alert": 35.0,
-      "light_dark_threshold": 40,
-      "light_bright_threshold": 80,
-      "night_start": "22:00",
-      "night_end": "06:00"
-    },
-    "events": {
-      "-O8xyz123abc": {
-        "timestamp": 1729014900,
-        "type": "night_presence",
-        "severity": "danger",
-        "message": "Deteksi pergerakan di luar jam operasional (23:14)"
-      }
-    }
-  }
-}
-```
+Struktur data resmi dan aturan keamanan (*Security Rules* berbasis peran) tersedia di:
+* Skema JSON Lengkap: [`firebase/schema-v0.9.json`](firebase/schema-v0.9.json)
+* Aturan Keamanan RTDB: [`firebase/database.rules.json`](firebase/database.rules.json)
+* Panduan Setup Firebase Console: [`firebase/README.md`](firebase/README.md)
 
 ---
 
@@ -135,35 +95,37 @@ Struktur data disepakati bersama antara pengembang firmware dan aplikasi Android
 
 ```text
 SmartRoomMonitor/
-├── .gitignore              # Proteksi file kredensial & build sampah (NFR-04)
-├── PROFIL_TIM.md           # Profil tim, visi proyek, dan pembagian modul
-├── README.md               # Dokumentasi utama proyek
-├── docs/                   # Berkas spesifikasi teknis dan pengadaan resmi
-│   ├── SRS-SmartRoomMonitor-v0.8.md
+├── .gitignore                              # Proteksi kredensial (secrets.h, google-services.json)
+├── PROFIL_TIM.md                           # Profil tim & pembagian modul SRS v0.9
+├── README.md                               # Dokumentasi utama proyek
+├── firebase/                               # Kontrak JSON v0.9, database.rules.json & panduan setup
+│   ├── schema-v0.9.json
+│   ├── database.rules.json
+│   └── README.md
+├── docs/                                   # Spesifikasi SRS v0.9, wiring, & protokol uji sensor
+│   ├── SRS-SmartRoomMonitor-v0.9.md
 │   ├── sinkronisasi-sensor-srs.md
 │   ├── blueprint-esp32s3-prototipe.md
-│   ├── daftar-kebutuhan-prototipe-s3.md
-│   ├── keranjang-belanja-shopee.md
-│   ├── daftar kebutuhan.docx
-│   └── daftar kebutuhan.pdf
-├── firmware/               # Kode program ESP32-S3 (PlatformIO / Arduino / ESPHome)
-│   ├── README.md           # Panduan perakitan & library firmware
-│   ├── sensor-ruangan.yaml # Konfigurasi ESPHome S3 + SHT30
-│   └── secrets.yaml.example
-└── app/                    # Aplikasi mobile Android (Kotlin + Jetpack Compose)
-    └── README.md           # Panduan arsitektur Android MVVM & konfigurasi Firebase
+│   ├── lembar_panduan_pinout_dan_wiring_esp32s3.md
+│   └── Lembar_Metrik_dan_Protokol_Pengujian_SmartRoomMonitor.docx
+├── firmware/                               # Kode ESP32-S3 (Produksi Firebase & Uji Modular)
+│   ├── smartroom_esp32s3_firebase/         # Firmware produksi Dual-Core + Firebase RTDB
+│   ├── tests/                              # Skrip uji 01 s.d. 09 (termasuk BLE modular)
+│   └── README.md
+└── app/                                    # Aplikasi Android (Kotlin + Jetpack Compose)
+    └── README.md
 ```
 
 ---
 
-## 👥 Tim Pengembang (Kelompok RPL)
+## 👥 Tim Pengembang (Sesuai SRS v0.9)
 
-| Nama | NIM | Peran Utama |
+| Nama | NIM | Peran & Modul |
 |---|---|---|
-| **Deswiryawan Saragih** | 241111008 | Product Owner / Modul M4 |
-| **Akhmad Zakariya** | 241111010 | Scrum Master / Modul M2 |
-| **Fattih Kuwaka Bekti** | 241111005 | Hardware & Firmware Lead / Modul M3 |
-| **Ahmad Syakir Lathifuddin** | 241111026 | Mobile App & Backend Lead / Modul M1 |
+| **Deswiryawan Saragih** | 241111008 | Product Owner / Modul M3 (FR-05, FR-06, NFR-05, NFR-06) |
+| **Akhmad Zakariya** | 241111010 | Scrum Master / Modul M2 (FR-03, FR-04, NFR-03, NFR-04) |
+| **Fattih Kuwaka Bekti** | 241111005 | Developer / Modul M4 (FR-07, FR-08, NFR-07, NFR-08) |
+| **Ahmad Syakir Lathifuddin** | 241111026 | Developer / Modul M1 (FR-01, FR-02, NFR-01, NFR-02) |
 
 ---
 
